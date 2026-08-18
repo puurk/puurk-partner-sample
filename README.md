@@ -126,10 +126,8 @@ nextCursor } }`; pass `cursor` and `limit` query params to page.
 
 ### Key fields for an operational view
 
-- `Contract.status`: `pending | signed | declined | expired | fulfilled |
-  overdue | delinquent | collections | cancelled | canceled | superseded`
-  (handle **both** spellings of cancel(l)ed). `overdue`, `delinquent`, and
-  `collections` are the "account needs attention" states.
+- `Contract.status`: `pending | signed | declined | expired | fulfilled | cancelled | canceled | superseded`
+  (handle **both** spellings of cancel(l)ed). 
 - `Contract.payoff_balance`, `Contract.total_paid`, `Contract.terms`
   (`down_payment`, `financed_amount`, `term_length`, `monthly_payment`,
   `total_amount`).
