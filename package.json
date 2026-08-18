@@ -1,0 +1,23 @@
+{
+  "name": "puurk-partner-sample",
+  "version": "0.2.0",
+  "description": "Sample partner integration that exercises the Puurk REST API and webhooks",
+  "private": true,
+  "main": "src/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "smoke": "node src/smoke_test.js",
+    "report": "node src/report.js",
+    "webhook": "node src/webhook_server.js",
+    "webhook:dev": "node --watch src/webhook_server.js",
+    "register-webhook": "node src/register_webhook.js",
+    "send-test-event": "node src/send_test_event.js",
+    "tunnel": "ngrok http 4747"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
