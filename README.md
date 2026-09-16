@@ -178,7 +178,7 @@ look before further treatments.
 |---|---|---|
 | `checkout.completed` | A hosted checkout session completes | `session_id`, `contract_id`, `status`, `amount`, `customer_email` |
 | `payment.succeeded` | An installment/payment is captured | `payment_id`, `contract_id`, `amount`, `total_amount`, `status`, `method`, `payment_datetime` |
-| `payment.failed` | A payment attempt is declined | `payment_id`, `contract_id`, `amount`, `status`, `failure_code`, `failure_message`, `payment_datetime` |
+| `payment.failed` | A payment attempt is declined | `payment_id`, `contract_id`, `amount`, `status`, `failure_code`, `failure_message`, `payment_datetime`, plus the retry fields below |
 | `payment.returned` | A settled payment is returned (e.g. ACH return) | same as `payment.failed` |
 | `payment.refunded` | A payment is refunded | `payment_id`, `contract_id`, `amount`, `refund_amount`, `total_amount`, `status`, `method`, `payment_datetime` |
 | `contract.created` | A payment plan contract is created | shared contract shape (below) |
@@ -196,6 +196,27 @@ events today** — detect those by polling `Contract.status` (see the report
 script). `payment.failed` covers failed attempts in real time and
 `payment.returned` covers post-settlement failures (the usual way an
 installment "bounces" after the fact).
+
+`payment.failed` and `payment.returned` also carry five retry fields:
+`decline_code`, `retry_category`, `retry_attempt_number`,
+`retry_next_attempt_at`, and `retry_stop_reason`. These are additive — the
+key is always present — and **all five are `null` on every event today**;
+expect `null`, not a missing key, until Puurk's automatic retry system is
+enabled.
+
+- `decline_code` — why the attempt was declined (e.g. `insufficient_funds`).
+- `retry_category` — the bucket Puurk classified this decline into, which
+  determines whether and how it gets retried.
+- `retry_attempt_number` — which attempt in the current retry cycle this
+  event represents (`1` for the first attempt).
+- `retry_next_attempt_at` — ISO-8601 UTC timestamp for the next scheduled
+  retry, or `null` if none is scheduled.
+- `retry_stop_reason` — why Puurk stopped retrying; present only on the
+  cycle's terminal event, `null` otherwise.
+
+Once retries are enabled, expect one `payment.failed` at the first failure
+of a retry cycle and one more at the terminal outcome (carrying
+`retry_stop_reason`), rather than one event per attempt.
 
 ### Delivery format
 
