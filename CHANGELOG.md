@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.2.1]
+
+### Security
+
+- PUU-2784: Resolve Vanta-reported npm vulnerabilities via `npm audit fix`
+  (lockfile only): `qs` 6.15.3 -> 6.16.0 (GHSA-x5fp-wj9c-mxmx,
+  GHSA-4mjr-xmp4-gh2g), `express` 4.22.2 -> 4.22.3, `body-parser`
+  1.20.6 -> 1.20.8, and `proxy-addr` 2.0.7 -> 2.0.8 (GHSA-jqcg-44mw-7w3h).
+  `npm audit` now reports 0 vulnerabilities.
+
 ## [v0.2.0]
 
 ### Changed

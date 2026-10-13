@@ -1,6 +1,6 @@
 {
   "name": "puurk-partner-sample",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Sample partner integration that exercises the Puurk REST API and webhooks",
   "private": true,
   "main": "src/index.js",
