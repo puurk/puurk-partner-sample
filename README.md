@@ -13,6 +13,11 @@ Use it two ways:
 - **As a starting point** for a real integration: `src/puurk_client.js` is a
   standalone API client, and `src/webhook_server.js` + `src/verify_signature.js`
   are a complete webhook receiver.
+- **`npm run storefront`**: an example merchant website (a fictional med spa)
+  that lists your organization's services with prices and "as low as $X/mo"
+  pricing, and takes Puurk checkout **inline on the merchant's own page** with
+  [`@puurk/js`](https://github.com/puurk/puurk-js). There's no redirect to a
+  Puurk-hosted page. See [Example storefront](#example-storefront-inline-checkout).
 
 ## Quick start
 
@@ -261,6 +266,83 @@ npm run send-test-event  # terminal 2: POST a locally signed sample event
 npm run tunnel           # optional: expose via ngrok, then register-webhook
 ```
 
+## Example storefront (inline checkout)
+
+`npm run storefront` serves **Lumière Aesthetics & Wellness**, a realistic demo
+med-spa website at http://localhost:4848. Its treatment menu is your
+organization's live service catalog. Customers book and pay without leaving the
+site: Puurk's checkout (plan picker, agreement signature, card entry) renders
+inside a drawer on the page.
+
+```
+Browser (public/)                  Storefront server (src/storefront_server.js)     Puurk API
+GET  /api/services        ───────▶ GET /organizations/{oid}/services           ───▶ catalog
+                                   GET /offers/terms (per price, cached)       ───▶ "as low as"
+POST /api/checkout                 price looked up SERVER-SIDE from catalog
+  {service_id, customer}  ───────▶ POST /checkout/sessions                     ───▶ session
+                          ◀─────── { session_id }
+Puurk.checkout.mount('#puurk-checkout', session_id, { onComplete, onError })
+  └─ the SDK talks to Puurk directly with the session id (no credentials in the browser)
+```
+
+The pieces worth copying into a real site:
+
+- **Credentials stay on your server.** The browser only ever receives a
+  checkout session id. `GET /config.js` exposes nothing but the SDK environment.
+- **Never trust a price from the browser.** `POST /api/checkout` takes a
+  `service_id` and looks the amount up in the catalog it fetched from Puurk.
+  The `services[]` line item on the session is for display; `amount` is what
+  drives the plans.
+- **Idempotent session creation.** Each drawer open gets an attempt id, and the
+  server derives the `Idempotency-Key` from it, so a double-click replays the
+  same session instead of creating two.
+- **Sessions expire after 30 minutes.** The drawer offers a one-click
+  "Start again" that creates a fresh session.
+- **The online menu is curated.** A real catalog can hold hundreds of items
+  (add-ons, per-unit pricing, internal entries). Set `STOREFRONT_SERVICE_IDS`
+  to choose exactly what's sold online. Without it, the server takes a varied
+  selection: one item per category in turn, within a price range, skipping
+  add-ons. Terms are only looked up for items that are on sale.
+- **Merchant presentation is yours.** Puurk owns names and prices;
+  `public/service_presentation.js` maps each service to a category tab, photo
+  and marketing copy on the merchant side.
+
+Run it:
+
+```bash
+npm install
+cp .env.example .env    # credential + provisioned sandbox oid (see Quick start)
+npm run storefront      # http://localhost:4848
+```
+
+The credential needs `services:read`, `terms:read` and `checkout:write` on the
+organization; a partner credential has all three on the orgs it provisions.
+Without `terms:read` the site still works, just without "as low as" pricing.
+In the sandbox, pay with test card `4242 4242 4242 4242` (any future expiry,
+any CVC). A completed checkout creates the client, payment plan and scheduled
+payments in your org, which you can see in the provider portal
+(`https://providersandbox.puurk.com`). It also fires a `checkout.completed`
+webhook if you've registered one (see [Webhooks](#webhooks)).
+
+### The @puurk/js SDK
+
+`@puurk/js` isn't on npm or the `js.puurk.com` CDN yet, so a built copy is
+vendored at `public/vendor/puurk.js`. Its first line records the version and
+commit. To refresh it from a local checkout of `puurk-js`:
+
+```bash
+npm run vendor-sdk                 # builds ../puurk-js
+npm run vendor-sdk -- <path>       # or another checkout
+```
+
+Once the CDN is live, set `PUURK_JS_URL=https://js.puurk.com/v1/puurk.js` and
+skip vendoring. `PUURK_ENVIRONMENT` (default `sandbox`) tells the SDK which
+Puurk environment to talk to, and must match `PUURK_API_BASE_URL`.
+
+Photos in `public/images/` are from [Unsplash](https://unsplash.com), free to
+use under the Unsplash License (see `public/images/CREDITS.md`). Lumière is a
+fictional business.
+
 ## Rate limits and restrictions
 
 - Token lifetime 3600 s; `POST /auth/token` is rate limited (HTTP 429) — mint
@@ -279,3 +361,6 @@ npm run tunnel           # optional: expose via ngrok, then register-webhook
 | `npm run register-webhook` | Register `WEBHOOK_PUBLIC_URL` with Puurk |
 | `npm run send-test-event` | POST a locally signed event to the receiver |
 | `npm run tunnel` | ngrok tunnel for local webhook testing |
+| `npm run storefront` | Example med-spa website with inline Puurk checkout (http://localhost:4848) |
+| `npm run storefront:dev` | Same, restarting on server code changes |
+| `npm run vendor-sdk` | Build `@puurk/js` from `../puurk-js` into `public/vendor/puurk.js` |

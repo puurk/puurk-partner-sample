@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lumière Aesthetics &amp; Wellness</title>
+  <meta name="description" content="Medical aesthetics, skin and wellness treatments in Scottsdale. Pay over time with Puurk payment plans.">
+  <meta name="theme-color" content="#2B2320">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%232B2320'/%3E%3Ctext x='32' y='43' font-family='Georgia' font-size='32' text-anchor='middle' fill='%23E9D5C3'%3EL%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="preload" as="image" href="/images/hero-suite.webp">
+  <link rel="stylesheet" href="/storefront.css">
+  <script src="/config.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div class="page" id="page">
+    <div class="announcement" role="note">
+      <span class="announcement__text">New clients: enjoy any treatment today and <strong>pay over time with Puurk</strong><span data-lowest-monthly hidden> — as low as <span data-lowest-monthly-amount></span>/mo</span>.</span>
+      <a href="#payment-plans" class="announcement__link">How it works</a>
+    </div>
+
+    <header class="site-header" id="site-header">
+      <div class="container site-header__inner">
+        <a href="#top" class="brand" aria-label="Lumière Aesthetics &amp; Wellness, home">
+          <span class="brand__mark" aria-hidden="true">L</span>
+          <span class="brand__text">
+            <span class="brand__name">Lumière</span>
+            <span class="brand__tag">Aesthetics &amp; Wellness</span>
+          </span>
+        </a>
+        <nav class="site-nav" id="site-nav" aria-label="Primary">
+          <a href="#treatments">Treatments</a>
+          <a href="#packages">Packages</a>
+          <a href="#payment-plans">Payment Plans</a>
+          <a href="#team">Our Team</a>
+          <a href="#reviews">Reviews</a>
+          <a href="#faq">FAQ</a>
+        </nav>
+        <div class="site-header__actions">
+          <a href="tel:+14805550142" class="header-phone">(480) 555-0142</a>
+          <a href="#treatments" class="btn btn--primary btn--sm">Book Now</a>
+          <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <img class="hero__image" src="/images/hero-suite.webp" alt="" width="1920" height="1080">
+        <div class="hero__overlay"></div>
+        <div class="container hero__content">
+          <p class="eyebrow eyebrow--light reveal">Scottsdale's boutique medical spa</p>
+          <h1 class="hero__title reveal">Radiance, <em>on your schedule.</em></h1>
+          <p class="hero__lead reveal">Physician-led injectables, advanced skin treatments and restorative body therapies, in a calm, private suite designed around you.</p>
+          <div class="hero__actions reveal">
+            <a href="#treatments" class="btn btn--light">Explore Treatments</a>
+            <a href="#payment-plans" class="btn btn--ghost-light">Payment plans</a>
+          </div>
+          <div class="hero__badge reveal">
+            <span class="hero__badge-label">Pay over time with</span>
+            <img src="/images/puurk-logo.svg" alt="Puurk" width="84" height="20">
+            <span class="hero__badge-sep" aria-hidden="true"></span>
+            <span>Simple monthly payments, no hidden fees</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats" aria-label="Lumière at a glance">
+        <div class="container stats__grid">
+          <div class="stat reveal"><span class="stat__value">12</span><span class="stat__label">Years caring for Scottsdale</span></div>
+          <div class="stat reveal"><span class="stat__value">1,400+</span><span class="stat__label">Five-star reviews</span></div>
+          <div class="stat reveal"><span class="stat__value">18k</span><span class="stat__label">Happy clients</span></div>
+          <div class="stat reveal"><span class="stat__value">9</span><span class="stat__label">Certified specialists</span></div>
+        </div>
+      </section>
+
+      <section class="section treatments" id="treatments" aria-labelledby="treatments-title">
+        <div class="container">
+          <div class="section-head reveal">
+            <p class="eyebrow">Treatments</p>
+            <h2 class="section-title" id="treatments-title">Thoughtful care, transparent pricing</h2>
+            <p class="section-lead">Every treatment begins with a one-on-one plan. Book and pay online in a few minutes, in full or over time with Puurk.</p>
+          </div>
+
+          <div class="tabs reveal" role="tablist" aria-label="Treatment categories" id="treatment-tabs">
+            <button role="tab" class="tab" aria-selected="true" data-category="all" id="tab-all">All</button>
+            <button role="tab" class="tab" aria-selected="false" data-category="face" id="tab-face">Face</button>
+            <button role="tab" class="tab" aria-selected="false" data-category="body" id="tab-body">Body</button>
+            <button role="tab" class="tab" aria-selected="false" data-category="wellness" id="tab-wellness">Wellness</button>
+          </div>
+
+          <div class="treatment-grid" id="treatment-grid" role="tabpanel" aria-labelledby="tab-all" aria-live="polite" aria-busy="true">
+            <div class="card card--skeleton" aria-hidden="true"></div>
+            <div class="card card--skeleton" aria-hidden="true"></div>
+            <div class="card card--skeleton" aria-hidden="true"></div>
+          </div>
+          <p class="catalog-error" id="catalog-error" hidden>Our treatment menu is temporarily unavailable. Please refresh, or call us at (480) 555-0142.</p>
+        </div>
+      </section>
+
+      <section class="section packages" id="packages" aria-labelledby="packages-title" hidden>
+        <div class="container">
+          <div class="section-head section-head--light reveal">
+            <p class="eyebrow eyebrow--light">Signature Packages</p>
+            <h2 class="section-title" id="packages-title">Curated series for lasting results</h2>
+            <p class="section-lead">Our most-loved treatments, combined and sequenced by our clinicians. Spread the cost across the series with a Puurk payment plan.</p>
+          </div>
+          <div class="package-grid" id="package-grid"></div>
+        </div>
+      </section>
+
+      <section class="section plans" id="payment-plans" aria-labelledby="plans-title">
+        <div class="container plans__inner">
+          <div class="plans__copy reveal">
+            <p class="eyebrow">Payment Plans</p>
+            <h2 class="section-title" id="plans-title">Begin today. Pay over time.</h2>
+            <p class="section-lead">We partner with <strong>Puurk</strong> so you can split any treatment into simple monthly payments, right here at checkout.</p>
+            <ol class="steps">
+              <li class="step">
+                <span class="step__num">1</span>
+                <div><h3>Choose your treatment</h3><p>Pick a treatment or package and tap <em>Book &amp; Pay</em>.</p></div>
+              </li>
+              <li class="step">
+                <span class="step__num">2</span>
+                <div><h3>Pick a plan that fits</h3><p>See every option up front: monthly amount, number of payments and total.</p></div>
+              </li>
+              <li class="step">
+                <span class="step__num">3</span>
+                <div><h3>Sign &amp; pay securely</h3><p>Agree to your plan and add a card. Payments are processed securely by Stripe.</p></div>
+              </li>
+            </ol>
+            <p class="plans__note"><img src="/images/puurk-logo.svg" alt="Puurk" width="70" height="17"> No hidden fees. No surprises. Your full schedule before you commit.</p>
+          </div>
+          <div class="plans__visual reveal">
+            <img src="/images/essentials.webp" alt="Spa essentials: rolled towel, lotion bottle, candle and tulips" width="900" height="675" loading="lazy">
+            <div class="plan-chip" aria-hidden="true">
+              <span class="plan-chip__label">Example plan</span>
+              <span class="plan-chip__amount" data-example-plan>12 monthly payments</span>
+              <span class="plan-chip__meta">Choose from 3 plan lengths at checkout</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section why" aria-labelledby="why-title">
+        <div class="container">
+          <div class="section-head reveal">
+            <p class="eyebrow">Why Lumière</p>
+            <h2 class="section-title" id="why-title">The standard of care you deserve</h2>
+          </div>
+          <div class="feature-grid">
+            <article class="feature reveal">
+              <svg class="feature__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l7 3v6c0 5-3.5 9.5-7 11-3.5-1.5-7-6-7-11V5l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+              <h3>Physician-led safety</h3>
+              <p>Every plan is reviewed by our medical director, and every injector is board-certified and trained in advanced facial anatomy.</p>
+            </article>
+            <article class="feature reveal">
+              <svg class="feature__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c-4 4-6 7-6 10a6 6 0 0012 0c0-3-2-6-6-10z"/><path d="M12 13v5"/></svg>
+              <h3>Natural-looking results</h3>
+              <p>We enhance rather than change. Subtle, considered treatments that look like you on your best day.</p>
+            </article>
+            <article class="feature reveal">
+              <svg class="feature__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg>
+              <h3>Flexible payment plans</h3>
+              <p>Transparent pricing on every treatment, with the option to pay over time through Puurk at checkout.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section studio" aria-labelledby="studio-title">
+        <div class="container studio__inner">
+          <img class="studio__image reveal" src="/images/studio.webp" alt="Lumière's signature care line on a counter beside an aloe plant" width="1200" height="900" loading="lazy">
+          <div class="studio__copy reveal">
+            <p class="eyebrow">Our Approach</p>
+            <h2 class="section-title" id="studio-title">A quieter kind of luxury</h2>
+            <p>Founded by Dr. Elena Marsh in 2014, Lumière was built on a simple idea: medical-grade results deserve a setting that feels restorative, not clinical. Private suites, unhurried appointments, and a team that remembers your name.</p>
+            <p>From your first consultation, we build a plan around your goals, your timeline and your budget, so you can begin when you're ready.</p>
+            <a href="#team" class="text-link">Meet the team <span aria-hidden="true">→</span></a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section team" id="team" aria-labelledby="team-title">
+        <div class="container">
+          <div class="section-head reveal">
+            <p class="eyebrow">Our Team</p>
+            <h2 class="section-title" id="team-title">Expert hands, genuine care</h2>
+          </div>
+          <div class="team-grid">
+            <article class="member reveal">
+              <img src="/images/team-director.webp" alt="Portrait of Dr. Elena Marsh" width="600" height="750" loading="lazy">
+              <h3>Dr. Elena Marsh, MD</h3>
+              <p class="member__role">Founder &amp; Medical Director</p>
+              <p>Board-certified in dermatology with fifteen years in aesthetic medicine.</p>
+            </article>
+            <article class="member reveal">
+              <img src="/images/team-injector.webp" alt="Portrait of Sofia Reyes" width="600" height="750" loading="lazy">
+              <h3>Sofia Reyes, RN</h3>
+              <p class="member__role">Lead Nurse Injector</p>
+              <p>Known for soft, balanced results and a famously gentle touch.</p>
+            </article>
+            <article class="member reveal">
+              <img src="/images/team-aesthetician.webp" alt="Portrait of Marcus Hale" width="600" height="750" loading="lazy">
+              <h3>Marcus Hale, LE</h3>
+              <p class="member__role">Master Aesthetician</p>
+              <p>Specializes in advanced facials, laser resurfacing and skin analysis.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section reviews" id="reviews" aria-labelledby="reviews-title">
+        <div class="container">
+          <div class="section-head reveal">
+            <p class="eyebrow">Reviews</p>
+            <h2 class="section-title" id="reviews-title">Loved by our clients</h2>
+            <p class="rating-summary"><span class="stars" aria-hidden="true">★★★★★</span> <strong>4.9</strong> average from 1,400+ reviews</p>
+          </div>
+          <div class="review-grid">
+            <figure class="review reveal">
+              <span class="stars" aria-label="5 out of 5 stars">★★★★★</span>
+              <blockquote>“Sofia is an artist. My results are so natural that friends just say I look rested. Splitting my package into monthly payments made it an easy yes.”</blockquote>
+              <figcaption><span class="avatar" aria-hidden="true">JR</span> Jasmine R. <span>· Client since 2021</span></figcaption>
+            </figure>
+            <figure class="review reveal">
+              <span class="stars" aria-label="5 out of 5 stars">★★★★★</span>
+              <blockquote>“The calmest spa I've ever been to. Booking and paying online took two minutes and I knew exactly what I'd owe each month.”</blockquote>
+              <figcaption><span class="avatar" aria-hidden="true">MT</span> Megan T. <span>· Laser resurfacing</span></figcaption>
+            </figure>
+            <figure class="review reveal">
+              <span class="stars" aria-label="5 out of 5 stars">★★★★★</span>
+              <blockquote>“Marcus walked me through my skin analysis like a true teacher. My skin has never been clearer, and the whole team is wonderful.”</blockquote>
+              <figcaption><span class="avatar" aria-hidden="true">DK</span> Daniel K. <span>· Skin analysis</span></figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="section faq" id="faq" aria-labelledby="faq-title">
+        <div class="container faq__inner">
+          <div class="section-head section-head--left reveal">
+            <p class="eyebrow">FAQ</p>
+            <h2 class="section-title" id="faq-title">Questions, answered</h2>
+            <p class="section-lead">Can't find what you're looking for? Call us at <a href="tel:+14805550142">(480) 555-0142</a>.</p>
+          </div>
+          <div class="faq__list reveal">
+            <details>
+              <summary>How do Puurk payment plans work?</summary>
+              <p>At checkout, choose to pay over time and pick from several plan lengths. You'll see your monthly amount, number of payments and total before you sign. Payments are drawn automatically from the card you add.</p>
+            </details>
+            <details>
+              <summary>Do I have to leave this site to pay?</summary>
+              <p>No. Checkout happens right here on our website. Puurk securely handles your plan agreement and card details, and Stripe processes the payments.</p>
+            </details>
+            <details>
+              <summary>Is a consultation required before treatment?</summary>
+              <p>For injectables and laser treatments, yes. We'll review your goals and medical history first. Consultations booked online are credited toward your first treatment.</p>
+            </details>
+            <details>
+              <summary>What is your cancellation policy?</summary>
+              <p>Please give us at least 24 hours' notice to reschedule. Late cancellations may be subject to a $50 fee.</p>
+            </details>
+            <details>
+              <summary>Can I combine treatments into one plan?</summary>
+              <p>Yes. Our Signature Packages bundle complementary treatments at a better value, and the whole package can be spread across one payment plan.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="cta" aria-labelledby="cta-title">
+        <div class="container cta__inner reveal">
+          <h2 id="cta-title">Your glow, your timeline.</h2>
+          <p>Book online in minutes, and pay in full or over time with Puurk.</p>
+          <a href="#treatments" class="btn btn--light">Book a Treatment</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container footer__grid">
+        <div>
+          <a href="#top" class="brand brand--light" aria-label="Lumière Aesthetics &amp; Wellness, home">
+            <span class="brand__mark" aria-hidden="true">L</span>
+            <span class="brand__text"><span class="brand__name">Lumière</span><span class="brand__tag">Aesthetics &amp; Wellness</span></span>
+          </a>
+          <p class="footer__blurb">Boutique medical aesthetics and wellness, thoughtfully delivered.</p>
+        </div>
+        <div>
+          <h3>Visit</h3>
+          <p>7014 E Camelback Rd, Suite 210<br>Scottsdale, AZ 85251</p>
+          <p><a href="tel:+14805550142">(480) 555-0142</a></p>
+        </div>
+        <div>
+          <h3>Hours</h3>
+          <p>Mon–Fri · 9am – 7pm<br>Saturday · 9am – 4pm<br>Sunday · Closed</p>
+        </div>
+        <div>
+          <h3>Explore</h3>
+          <ul>
+            <li><a href="#treatments">Treatments</a></li>
+            <li><a href="#packages">Packages</a></li>
+            <li><a href="#payment-plans">Payment Plans</a></li>
+            <li><a href="#faq">FAQ</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="container footer__legal">
+        <p>© <span id="year">2026</span> Lumière Aesthetics &amp; Wellness</p>
+        <p class="footer__demo">Demo website for the Puurk partner sample. Not a real business; no real services are sold.</p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Checkout drawer -->
+  <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
+  <aside class="drawer" id="checkout-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden>
+    <header class="drawer__header">
+      <div>
+        <p class="eyebrow">Book &amp; Pay</p>
+        <h2 class="drawer__title" id="drawer-title">Your treatment</h2>
+      </div>
+      <button class="drawer__close" id="drawer-close" aria-label="Close checkout">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+
+    <ol class="drawer__progress" aria-label="Checkout progress">
+      <li data-step-indicator="details" class="is-active">Your details</li>
+      <li data-step-indicator="checkout">Plan &amp; payment</li>
+      <li data-step-indicator="done">Confirmed</li>
+    </ol>
+
+    <div class="drawer__body">
+      <div class="order-summary" id="order-summary">
+        <img id="summary-image" src="" alt="" width="96" height="72">
+        <div>
+          <p class="order-summary__name" id="summary-name"></p>
+          <p class="order-summary__price"><span id="summary-price"></span><span class="order-summary__monthly" id="summary-monthly"></span></p>
+        </div>
+      </div>
+
+      <section data-step="details">
+        <form id="details-form" class="form" novalidate>
+          <div class="field">
+            <label for="customer-name">Full name</label>
+            <input id="customer-name" name="name" type="text" autocomplete="name" required maxlength="100">
+          </div>
+          <div class="field">
+            <label for="customer-email">Email</label>
+            <input id="customer-email" name="email" type="email" autocomplete="email" required>
+          </div>
+          <div class="field">
+            <label for="customer-phone">Mobile phone <span class="field__optional">(optional)</span></label>
+            <input id="customer-phone" name="phone" type="tel" autocomplete="tel" maxlength="32">
+          </div>
+          <p class="form__error" id="details-error" role="alert" hidden></p>
+          <button type="submit" class="btn btn--primary btn--block" id="details-submit">Continue to payment options</button>
+          <p class="form__fine">You'll choose to pay in full or over time on the next step. Your details are shared with Puurk to set up your plan.</p>
+        </form>
+      </section>
+
+      <section data-step="checkout" hidden>
+        <div class="checkout-loading" id="checkout-loading">
+          <div class="skeleton-line skeleton-line--lg"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-block"></div>
+          <p>Preparing your payment options…</p>
+        </div>
+        <div id="puurk-checkout" class="puurk-mount"></div>
+        <div class="checkout-problem" id="checkout-problem" hidden>
+          <p id="checkout-problem-text"></p>
+          <button type="button" class="btn btn--primary" id="checkout-retry">Start again</button>
+        </div>
+        <p class="powered-by">Secure checkout by <img src="/images/puurk-logo.svg" alt="Puurk" width="58" height="14"></p>
+      </section>
+
+      <section data-step="done" hidden>
+        <div class="confirmation">
+          <div class="confirmation__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+          </div>
+          <h3>You're all set!</h3>
+          <p id="confirmation-text">Your payment plan is confirmed. We'll be in touch shortly to schedule your appointment.</p>
+          <a class="btn btn--primary" id="confirmation-link" href="/success.html">View confirmation</a>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <script src="/service_presentation.js"></script>
+  <script src="/storefront.js"></script>
+</body>
+</html>

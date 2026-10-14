@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Booking Confirmed · Lumière</title>
+  <meta name="theme-color" content="#2B2320">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%232B2320'/%3E%3Ctext x='32' y='43' font-family='Georgia' font-size='32' text-anchor='middle' fill='%23E9D5C3'%3EL%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/storefront.css">
+  <style>
+    .success-page { min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto; }
+    .success { display: grid; place-items: center; padding: 64px 0 96px; }
+    .success__card {
+      width: min(640px, 100%); background: var(--white); border: 1px solid var(--sand);
+      border-radius: 24px; box-shadow: var(--shadow); overflow: hidden;
+    }
+    .success__banner { position: relative; height: 180px; }
+    .success__banner img { width: 100%; height: 100%; object-fit: cover; }
+    .success__banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(43, 35, 32, 0) 30%, rgba(43, 35, 32, 0.55)); }
+    .success__content { padding: 0 40px 40px; text-align: center; display: grid; gap: 16px; justify-items: center; }
+    .success__content .confirmation__icon { margin-top: -42px; position: relative; z-index: 1; background: var(--white); box-shadow: var(--shadow); }
+    .success__title { font-family: var(--font-display); font-size: clamp(34px, 5vw, 46px); font-weight: 600; line-height: 1.1; }
+    .success__lead { color: var(--espresso-soft); max-width: 460px; }
+    .success__details {
+      width: 100%; margin: 8px 0 0; padding: 20px 24px; border-radius: var(--radius);
+      background: var(--cream); display: grid; gap: 10px; text-align: left; font-size: 14px;
+    }
+    .success__details div { display: flex; justify-content: space-between; gap: 16px; }
+    .success__details dt { color: var(--taupe); }
+    .success__details dd { margin: 0; font-weight: 600; word-break: break-all; text-align: right; }
+    .next-steps { width: 100%; text-align: left; display: grid; gap: 14px; margin-top: 8px; }
+    .next-steps h2 { font-family: var(--font-display); font-size: 24px; font-weight: 600; }
+    .next-steps ol { margin: 0; padding-left: 20px; color: var(--espresso-soft); display: grid; gap: 8px; }
+    .success__actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
+    @media (max-width: 560px) { .success__content { padding: 0 20px 28px; } }
+  </style>
+</head>
+<body>
+  <div class="success-page">
+    <header class="site-header is-scrolled">
+      <div class="container site-header__inner">
+        <a href="/" class="brand" aria-label="Lumière Aesthetics &amp; Wellness, home">
+          <span class="brand__mark" aria-hidden="true">L</span>
+          <span class="brand__text"><span class="brand__name">Lumière</span><span class="brand__tag">Aesthetics &amp; Wellness</span></span>
+        </a>
+      </div>
+    </header>
+
+    <main class="success container">
+      <article class="success__card">
+        <div class="success__banner"><img src="/images/hero-suite.webp" alt="" width="1920" height="1080"></div>
+        <div class="success__content">
+          <div class="confirmation__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+          <h1 class="success__title">Your booking is confirmed</h1>
+          <p class="success__lead" id="success-lead">Thank you for choosing Lumière. Your payment plan is set up and a receipt is on its way to your inbox.</p>
+
+          <dl class="success__details" id="success-details" hidden>
+            <div id="detail-service" hidden><dt>Treatment</dt><dd></dd></div>
+            <div id="detail-contract" hidden><dt>Plan reference</dt><dd></dd></div>
+            <div id="detail-session" hidden><dt>Checkout session</dt><dd></dd></div>
+          </dl>
+
+          <section class="next-steps" aria-labelledby="next-steps-title">
+            <h2 id="next-steps-title">What happens next</h2>
+            <ol>
+              <li>Our concierge will call or text within one business day to schedule your visit.</li>
+              <li>Your plan schedule and receipts are emailed to you by Puurk.</li>
+              <li>Questions about your plan? Reply to your receipt email or call us at (480) 555-0142.</li>
+            </ol>
+          </section>
+
+          <div class="success__actions">
+            <a href="/" class="btn btn--primary">Back to Lumière</a>
+            <a href="/#treatments" class="btn btn--outline">Explore more treatments</a>
+          </div>
+        </div>
+      </article>
+    </main>
+
+    <footer class="site-footer" style="padding-top: 32px;">
+      <div class="container footer__legal" style="margin-top: 0; border-top: 0; padding-top: 0;">
+        <p>© Lumière Aesthetics &amp; Wellness</p>
+        <p class="footer__demo">Demo website for the Puurk partner sample. Not a real business; no real services are sold.</p>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      document.documentElement.classList.remove('no-js')
+      const params = new URLSearchParams(location.search)
+      const rows = { service: params.get('service'), contract: params.get('contract_id'), session: params.get('session_id') }
+      let any = false
+      for (const [key, value] of Object.entries(rows)) {
+        if (!value) continue
+        const row = document.getElementById(`detail-${key}`)
+        row.querySelector('dd').textContent = value
+        row.hidden = false
+        any = true
+      }
+      document.getElementById('success-details').hidden = !any
+    })()
+  </script>
+</body>
+</html>

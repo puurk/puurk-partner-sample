@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.3.0]
+
+### Added
+
+- PUU-2802: Example storefront (`npm run storefront`). A realistic demo
+  med-spa website that lists the organization's live service catalog with
+  prices and "as low as $X/mo" Puurk pricing, and takes checkout inline on
+  the merchant's own page with `@puurk/js` (`Puurk.checkout.mount`), with no
+  redirect to a Puurk-hosted page. The server keeps the API credential,
+  prices sessions from the catalog (never from the browser), and creates
+  sessions idempotently. Ships with a vendored `@puurk/js` build
+  (`npm run vendor-sdk` refreshes it), a responsive design, and a confirmation page.
+- `PuurkClient` methods for the service catalog and checkout sessions.
+
 ## [v0.2.1]
 
 ### Security
