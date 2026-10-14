@@ -16,6 +16,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   prices sessions from the catalog (never from the browser), and creates
   sessions idempotently. Ships with a vendored `@puurk/js` build
   (`npm run vendor-sdk` refreshes it), a responsive design, and a confirmation page.
+- PUU-2802: When the embedded checkout reports an error, the storefront checks
+  the session's real status on the server (partner
+  `GET /checkout/sessions/{id}`) before offering "Start again", and shows
+  the confirmation if the checkout actually completed. A confirm can finish
+  in Puurk after the browser sees a failure (for example an API gateway
+  timeout), and restarting would charge the customer twice.
 - `PuurkClient` methods for the service catalog and checkout sessions.
 
 ## [v0.2.1]

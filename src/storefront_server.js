@@ -53,6 +53,8 @@ if (!ENVIRONMENTS.has(config.puurkEnvironment)) {
 const client = new PuurkClient(config)
 let catalogCache = { items: null, fetchedAt: 0 }
 let catalogInFlight = null
+// Sessions this server created; only these can be looked up from the browser.
+const createdSessionIds = new Set()
 
 /**
  * Finds the lowest monthly payment Puurk offers for a price.
@@ -246,6 +248,7 @@ app.post('/api/checkout', async (req, res) => {
       cancel_url: `${origin}/#treatments`,
       metadata: { source: 'storefront-example' }
     }, idempotencyKey)
+    createdSessionIds.add(session.session_id)
     res.status(201).json({ session_id: session.session_id, expires_at: session.expires_at })
   } catch (e) {
     if (e instanceof PuurkApiError) {
@@ -256,6 +259,29 @@ app.post('/api/checkout', async (req, res) => {
     } else {
       console.error(`Session create failed: ${e.message}`)
     }
+    res.status(502).json({ error: ERROR_MESSAGES.checkoutUnavailable })
+  }
+})
+
+// Server-side source of truth for a session's outcome. The browser asks
+// before offering "Start again": a confirm the browser saw fail (e.g. a
+// network or gateway timeout) may still have completed in Puurk, and
+// restarting would charge the customer twice.
+app.get('/api/checkout/:sessionId/status', async (req, res) => {
+  const { sessionId } = req.params
+  if (!createdSessionIds.has(sessionId)) return res.status(404).json({ error: ERROR_MESSAGES.invalidRequest })
+  try {
+    const session = await client.getCheckoutSession(sessionId)
+    res.set('Cache-Control', 'no-store').json({
+      session_id: sessionId,
+      status: session.status,
+      contract_id: session.contract_id ?? null
+    })
+  } catch (e) {
+    if (e instanceof PuurkApiError && e.status === 410) {
+      return res.json({ session_id: sessionId, status: 'expired', contract_id: null })
+    }
+    console.error(`Session status failed: ${e.status ?? ''} ${e.message}`)
     res.status(502).json({ error: ERROR_MESSAGES.checkoutUnavailable })
   }
 })

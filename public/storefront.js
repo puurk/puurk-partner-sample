@@ -12,6 +12,8 @@
   const config = window.STOREFRONT_CONFIG || { environment: 'sandbox', puurkJsUrl: '/vendor/puurk.js' }
   const present = window.SERVICE_PRESENTATION
   const CONFIRMATION_DELAY_MS = 1400
+  const STATUS_CHECK_WINDOW_MS = 75 * 1000
+  const STATUS_CHECK_INTERVAL_MS = 3000
 
   const $ = (selector, root = document) => root.querySelector(selector)
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector))
@@ -323,6 +325,8 @@
   function resetCheckoutArea () {
     teardownCheckout()
     $('#puurk-checkout').replaceChildren()
+    $('#puurk-checkout').hidden = false
+    $('#checkout-loading p').textContent = 'Preparing your payment options…'
     $('#checkout-loading').hidden = false
     $('#checkout-problem').hidden = true
   }
@@ -411,9 +415,8 @@
           setTimeout(() => showConfirmation(result), CONFIRMATION_DELAY_MS)
         },
         onError: error => {
-          // The embedded checkout shows the details; offer a clean restart.
           console.error('Puurk checkout error', error)
-          showProblem('Something went wrong with this checkout. You can start again. You have not been charged.')
+          recoverFromError(session.session_id)
         }
       })
       $('#checkout-loading').hidden = true
@@ -431,6 +434,52 @@
         showProblem('This checkout timed out for your security. Start again to pick up where you left off.')
       }, msUntilExpiry + 1000)
     }
+  }
+
+  /**
+   * Asks our server for the session's real outcome.
+   * @param {string} sessionId
+   * @return {Promise<{status: string, contract_id: string|null}|null>} Null when unknown.
+   */
+  async function fetchSessionStatus (sessionId) {
+    try {
+      const res = await fetch(`/api/checkout/${encodeURIComponent(sessionId)}/status`, { cache: 'no-store' })
+      return res.ok ? await res.json() : null
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Handles an error from the embedded checkout. An error the browser sees
+   * (e.g. a network or gateway timeout on confirm) doesn't mean the payment
+   * failed: Puurk may still be finishing it. Check the session's real
+   * status for a while before offering "Start again", so a customer is
+   * never invited to pay twice.
+   * @param {string} sessionId
+   */
+  async function recoverFromError (sessionId) {
+    const attempt = state.attemptId
+    const stillCurrent = () => state.attemptId === attempt && !drawer.hidden
+    clearTimeout(state.expiryTimer)
+    $('#puurk-checkout').hidden = true
+    $('#checkout-problem').hidden = true
+    $('#checkout-loading').hidden = false
+    $('#checkout-loading p').textContent = 'Confirming your payment. This can take up to a minute…'
+
+    const deadline = Date.now() + STATUS_CHECK_WINDOW_MS
+    while (stillCurrent()) {
+      const session = await fetchSessionStatus(sessionId)
+      if (session?.status === 'completed') {
+        showConfirmation({ session_id: sessionId, contract_id: session.contract_id })
+        return
+      }
+      if (session?.status === 'expired' || Date.now() >= deadline) break
+      await new Promise(resolve => setTimeout(resolve, STATUS_CHECK_INTERVAL_MS))
+    }
+    if (!stillCurrent()) return
+
+    showProblem('Something went wrong with this checkout and it was not completed. You have not been charged. You can start again.')
   }
 
   /**

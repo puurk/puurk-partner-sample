@@ -213,6 +213,16 @@ class PuurkClient {
     return this.request('POST', '/checkout/sessions', { body, headers })
   }
 
+  /**
+   * Fetches a checkout session created by this partner.
+   * @param {string} sessionId Checkout session id.
+   * @return {Promise<{session_id: string, status: string, contract_id: string|null}>}
+   *   Session; 410 once expired.
+   */
+  getCheckoutSession (sessionId) {
+    return this.request('GET', `/checkout/sessions/${encodeURIComponent(sessionId)}`)
+  }
+
   // --- Payments ---
 
   /**

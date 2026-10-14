@@ -298,6 +298,12 @@ The pieces worth copying into a real site:
   same session instead of creating two.
 - **Sessions expire after 30 minutes.** The drawer offers a one-click
   "Start again" that creates a fresh session.
+- **An error isn't proof of failure.** If the embedded checkout reports an
+  error, the browser asks the server (`GET /api/checkout/{id}/status`, backed by
+  the partner `GET /checkout/sessions/{id}`) for the session's real status for
+  up to about a minute. If the session completed, the drawer shows the
+  confirmation. "Start again" is offered only when the session didn't
+  complete, so a customer is never invited to pay twice.
 - **The online menu is curated.** A real catalog can hold hundreds of items
   (add-ons, per-unit pricing, internal entries). Set `STOREFRONT_SERVICE_IDS`
   to choose exactly what's sold online. Without it, the server takes a varied
