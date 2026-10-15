@@ -67,7 +67,7 @@
             <h2 id="next-steps-title">What happens next</h2>
             <ol>
               <li>Our concierge will call or text within one business day to schedule your visit.</li>
-              <li>Your plan schedule and receipts are emailed to you by Puurk.</li>
+              <li id="next-receipts">Your plan schedule and receipts are emailed to you by Puurk.</li>
               <li>Questions about your plan? Reply to your receipt email or call us at (480) 555-0142.</li>
             </ol>
           </section>
@@ -102,6 +102,12 @@
         any = true
       }
       document.getElementById('success-details').hidden = !any
+      // No plan reference means the client paid in full.
+      if (rows.session && !rows.contract) {
+        document.getElementById('success-lead').textContent =
+          'Thank you for choosing Lumière. Your payment is complete and a receipt is on its way to your inbox.'
+        document.getElementById('next-receipts').textContent = 'Your receipt is emailed to you by Puurk.'
+      }
     })()
   </script>
 </body>

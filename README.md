@@ -270,32 +270,53 @@ npm run tunnel           # optional: expose via ngrok, then register-webhook
 
 `npm run storefront` serves **Lumière Aesthetics & Wellness**, a realistic demo
 med-spa website at http://localhost:4848. Its treatment menu is your
-organization's live service catalog. Customers book and pay without leaving the
-site: Puurk's checkout (plan picker, agreement signature, card entry) renders
-inside a drawer on the page.
+organization's live service catalog. Customers add treatments to a cart and
+check out without leaving the site. Puurk's checkout renders inside a drawer on
+the page, styled with the site's own colors and font. The checkout covers paying
+in full or picking a payment plan, signing the agreement and entering a card.
 
 ```
 Browser (public/)                  Storefront server (src/storefront_server.js)     Puurk API
 GET  /api/services        ───────▶ GET /organizations/{oid}/services           ───▶ catalog
-                                   GET /offers/terms (per price, cached)       ───▶ "as low as"
-POST /api/checkout                 price looked up SERVER-SIDE from catalog
-  {service_id, customer}  ───────▶ POST /checkout/sessions                     ───▶ session
+                                   GET /offers/terms (per amount, cached)      ───▶ "as low as"
+POST /api/cart/quote               cart priced SERVER-SIDE; terms for the cart
+  {items}                 ───────▶ total and for total + each item             ───▶ increments
+POST /api/checkout                 cart priced SERVER-SIDE from catalog
+  {items, customer}       ───────▶ POST /checkout/sessions (amount, services[])───▶ session
                           ◀─────── { session_id }
-Puurk.checkout.mount('#puurk-checkout', session_id, { onComplete, onError })
+Puurk.checkout.mount('#puurk-checkout', session_id, { appearance, payInFull, onComplete, onError })
   └─ the SDK talks to Puurk directly with the session id (no credentials in the browser)
 ```
 
 The pieces worth copying into a real site:
 
 - **Credentials stay on your server.** The browser only ever receives a
-  checkout session id. `GET /config.js` exposes nothing but the SDK environment.
-- **Never trust a price from the browser.** `POST /api/checkout` takes a
-  `service_id` and looks the amount up in the catalog it fetched from Puurk.
-  The `services[]` line item on the session is for display; `amount` is what
-  drives the plans.
-- **Idempotent session creation.** Each drawer open gets an attempt id, and the
-  server derives the `Idempotency-Key` from it, so a double-click replays the
-  same session instead of creating two.
+  checkout session id. `GET /config.js` exposes only the SDK environment and
+  display settings.
+- **Never trust a price from the browser.** The cart sends only service ids
+  and quantities. The server prices every line from the catalog it fetched
+  from Puurk, caps quantities, and sends Puurk the total as `amount` with the
+  lines as `services[]`. The line items are for display and record-keeping;
+  `amount` is what drives the plans.
+- **"As low as" is quoted, not added up.** Plan lengths change with the
+  amount: larger totals unlock longer plans. So the "+$X/mo" a treatment adds
+  to the cart is the lowest monthly payment for (cart total + its price) minus
+  the cart's own, both from live `GET /offers/terms`. Adding something can
+  even *lower* the monthly minimum, and the cards say so. Terms are cached per
+  amount.
+- **Match the checkout to your brand.** `mount()` takes an `appearance`
+  (colors, font, radius, web fonts) that styles the embedded checkout,
+  including Stripe's card fields. The embedded checkout doesn't repeat your
+  business or customer name, because your page already shows that context.
+- **Pay in full is your call.** The embedded checkout offers paying in full
+  alongside payment plans. If you take full payments through another channel,
+  set `STOREFRONT_PAY_IN_FULL=false`; the storefront passes `payInFull: false`
+  to `mount()`, so only payment plans are offered. A pay-in-full checkout
+  completes with `contract_id: null`, because there's no payment plan.
+- **Idempotent session creation.** Each checkout attempt gets an attempt id,
+  and the server derives the `Idempotency-Key` from it plus the cart contents.
+  A double-click replays the same session instead of creating two, while a
+  changed cart gets a fresh one.
 - **Sessions expire after 30 minutes.** The drawer offers a one-click
   "Start again" that creates a fresh session.
 - **An error isn't proof of failure.** If the embedded checkout reports an
@@ -325,8 +346,9 @@ The credential needs `services:read`, `terms:read` and `checkout:write` on the
 organization; a partner credential has all three on the orgs it provisions.
 Without `terms:read` the site still works, just without "as low as" pricing.
 In the sandbox, pay with test card `4242 4242 4242 4242` (any future expiry,
-any CVC). A completed checkout creates the client, payment plan and scheduled
-payments in your org, which you can see in the provider portal
+any CVC). A completed checkout creates the client and either a payment plan
+with scheduled payments, or a single payment if the client paid in full. You
+can see them in the provider portal
 (`https://providersandbox.puurk.com`). It also fires a `checkout.completed`
 webhook if you've registered one (see [Webhooks](#webhooks)).
 

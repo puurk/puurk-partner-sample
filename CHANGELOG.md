@@ -22,6 +22,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   the confirmation if the checkout actually completed. A confirm can finish
   in Puurk after the browser sees a failure (for example an API gateway
   timeout), and restarting would charge the customer twice.
+- PUU-2824: Shopping cart for the storefront. Clients add several treatments
+  and packages, adjust quantities, and check out once. The server prices the
+  whole cart from the catalog, caps quantities, and creates one Puurk session
+  for the total with the items as line items. A new `POST /api/cart/quote`
+  endpoint returns the cart's "as low as" plus, for every treatment, how much
+  adding it changes the cart's lowest monthly payment. Cards show this as
+  "Add for +$X/mo", quoted from live terms because plan lengths change with
+  the amount.
+- PUU-2824: The embedded checkout is styled with Lumière's brand through the
+  `@puurk/js` `appearance` option, and offers pay in full alongside payment
+  plans. `STOREFRONT_PAY_IN_FULL=false` passes `payInFull: false` for
+  integrators who take full payments elsewhere.
 - `PuurkClient` methods for the service catalog and checkout sessions.
 
 ## [v0.2.1]

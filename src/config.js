@@ -18,11 +18,17 @@ const config = {
   storefrontMaxPackages: Number(process.env.STOREFRONT_MAX_PACKAGES || 4),
   storefrontMinPrice: Number(process.env.STOREFRONT_MIN_PRICE || 10000),
   storefrontMaxPrice: Number(process.env.STOREFRONT_MAX_PRICE || 2500000),
+  // Offer "Pay in full" in the embedded checkout. Set to false when full
+  // payments are taken through another channel.
+  storefrontPayInFull: process.env.STOREFRONT_PAY_IN_FULL !== 'false',
   // @puurk/js environment the browser checkout talks to; must match the
   // environment PUURK_API_BASE_URL points at.
   puurkEnvironment: process.env.PUURK_ENVIRONMENT || 'sandbox',
   // Where the browser loads @puurk/js from. Defaults to the vendored build.
-  puurkJsUrl: process.env.PUURK_JS_URL || '/vendor/puurk.js'
+  puurkJsUrl: process.env.PUURK_JS_URL || '/vendor/puurk.js',
+  // Local testing only: point the browser SDK at another checkout API (e.g.
+  // a local emulator). Empty uses the environment's default gateway.
+  puurkJsApiUrl: process.env.PUURK_JS_API_URL || ''
 }
 
 function requireCredentials () {

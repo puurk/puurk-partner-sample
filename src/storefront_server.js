@@ -3,10 +3,11 @@
  * organization's services with prices and takes Puurk checkout inline on
  * the page with @puurk/js (`Puurk.checkout.mount`).
  *
- * The server holds the API credential and does the two things a browser
- * must never do itself:
+ * The server holds the API credential and does the things a browser must
+ * never do itself:
  *   1. read the live catalog and "as low as" pricing (GET /api/services)
- *   2. create a checkout session at the server-side price (POST /api/checkout)
+ *   2. price the cart and its "as low as" increments (POST /api/cart/quote)
+ *   3. create a checkout session at the server-side cart total (POST /api/checkout)
  * The browser only ever receives a session id.
  */
 
@@ -28,10 +29,17 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const ATTEMPT_ID_PATTERN = /^[A-Za-z0-9-]{8,64}$/
 const MAX_NAME_LENGTH = 100
 const MAX_PHONE_LENGTH = 32
+const MAX_CART_LINES = 20
+const MAX_LINE_QUANTITY = 10
+// checkout-service rejects session amounts above $1,000,000.
+const MAX_CART_TOTAL = 100000000
+const TERMS_CACHE_MAX_ENTRIES = 500
+const TERMS_FAILURE_TTL_MS = 30 * 1000
 
 const ERROR_MESSAGES = {
   invalidRequest: 'Please check your details and try again.',
   unknownService: 'That treatment is no longer available.',
+  cartTooLarge: 'Your cart is too large to check out online. Please call us to book.',
   merchantNotReady: 'Online payment plans are not available for this treatment right now.',
   catalogUnavailable: 'Our treatment menu is temporarily unavailable.',
   checkoutUnavailable: 'We could not start checkout. Please try again.'
@@ -53,6 +61,7 @@ if (!ENVIRONMENTS.has(config.puurkEnvironment)) {
 const client = new PuurkClient(config)
 let catalogCache = { items: null, fetchedAt: 0 }
 let catalogInFlight = null
+const termsCache = new Map()
 // Sessions this server created; only these can be looked up from the browser.
 const createdSessionIds = new Set()
 
@@ -74,6 +83,26 @@ async function lowestMonthlyPayment (amount) {
     console.warn(`Terms lookup failed for ${amount}: ${e.status ?? e.message}`)
     return null
   }
+}
+
+/**
+ * Cached "as low as" for an amount. Cart quotes ask for many amounts
+ * (cart total, and cart total plus each item), so results are cached and
+ * concurrent lookups for the same amount share one request. Failed lookups
+ * (null) are cached too, but only briefly.
+ * @param {number} amount Price in cents.
+ * @return {Promise<{monthly_payment: number, term_length: number}|null>}
+ */
+function quoteAmount (amount) {
+  const hit = termsCache.get(amount)
+  if (hit && Date.now() < hit.expiresAt) return hit.promise
+  const promise = lowestMonthlyPayment(amount)
+  termsCache.set(amount, { promise, expiresAt: Date.now() + CATALOG_TTL_MS })
+  promise.then(result => {
+    if (result === null) termsCache.set(amount, { promise, expiresAt: Date.now() + TERMS_FAILURE_TTL_MS })
+  })
+  if (termsCache.size > TERMS_CACHE_MAX_ENTRIES) termsCache.delete(termsCache.keys().next().value)
+  return promise
 }
 
 /**
@@ -140,7 +169,7 @@ async function loadCatalog () {
 
   // Terms are looked up only for what's on sale, once per distinct price.
   const prices = [...new Set(sellable.map(s => s.unit_price))]
-  const lowestByPrice = new Map(await Promise.all(prices.map(async p => [p, await lowestMonthlyPayment(p)])))
+  const lowestByPrice = new Map(await Promise.all(prices.map(async p => [p, await quoteAmount(p)])))
 
   return sellable
     .map(s => ({
@@ -194,13 +223,65 @@ function parseCustomer (input) {
   return phone ? { name, email, phone } : { name, email }
 }
 
+/**
+ * Validates the cart sent by the browser. Only service ids and quantities
+ * are accepted; prices always come from the catalog. Duplicate lines are
+ * merged.
+ * @param {*} input Request body `items`.
+ * @param {{allowEmpty?: boolean}} [options] Whether an empty cart is valid.
+ * @return {Array<{service_id: string, quantity: number}>|null} Null when invalid.
+ */
+function parseCartItems (input, { allowEmpty = false } = {}) {
+  if (!Array.isArray(input) || input.length > MAX_CART_LINES) return null
+  if (input.length === 0 && !allowEmpty) return null
+  const quantities = new Map()
+  for (const item of input) {
+    if (!item || typeof item.service_id !== 'string' || item.service_id.length > 128) return null
+    if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > MAX_LINE_QUANTITY) return null
+    const quantity = Math.min((quantities.get(item.service_id) ?? 0) + item.quantity, MAX_LINE_QUANTITY)
+    quantities.set(item.service_id, quantity)
+  }
+  return [...quantities].map(([serviceId, quantity]) => ({ service_id: serviceId, quantity }))
+}
+
+/**
+ * Prices cart items against the catalog (refreshing it once if an id is
+ * unknown).
+ * @param {Array<{service_id: string, quantity: number}>} items Parsed cart.
+ * @return {Promise<{lines: Array<object>, total: number}|null>} Null when an
+ *   item isn't for sale.
+ */
+async function priceCart (items) {
+  const find = (catalog, id) => catalog.find(s => s.id === id)
+  let catalog = await getCatalog()
+  if (items.some(item => !find(catalog, item.service_id))) catalog = await getCatalog({ force: true })
+  const lines = []
+  for (const item of items) {
+    const service = find(catalog, item.service_id)
+    if (!service) return null
+    lines.push({
+      service_id: service.id,
+      name: service.name,
+      unit_price: service.unit_price,
+      quantity: item.quantity,
+      line_total: service.unit_price * item.quantity
+    })
+  }
+  return { lines, total: lines.reduce((sum, line) => sum + line.line_total, 0) }
+}
+
 const app = express()
 app.disable('x-powered-by')
 app.use(express.json({ limit: '16kb' }))
 
 // Browser config: environment and SDK location only, never credentials.
 app.get('/config.js', (req, res) => {
-  const browserConfig = { environment: config.puurkEnvironment, puurkJsUrl: config.puurkJsUrl }
+  const browserConfig = {
+    environment: config.puurkEnvironment,
+    puurkJsUrl: config.puurkJsUrl,
+    payInFull: config.storefrontPayInFull,
+    apiUrl: config.puurkJsApiUrl || undefined
+  }
   res.type('application/javascript').set('Cache-Control', 'no-store')
     .send(`window.STOREFRONT_CONFIG = ${JSON.stringify(browserConfig)};\n`)
 })
@@ -214,36 +295,76 @@ app.get('/api/services', async (req, res) => {
   }
 })
 
-app.post('/api/checkout', async (req, res) => {
-  const { service_id: serviceId, attempt_id: attemptId } = req.body ?? {}
-  const customer = parseCustomer(req.body?.customer)
-  if (typeof serviceId !== 'string' || !customer || (attemptId !== undefined && !ATTEMPT_ID_PATTERN.test(attemptId))) {
-    return res.status(400).json({ error: ERROR_MESSAGES.invalidRequest })
-  }
+// Prices a cart and shows what each catalog item would add to its lowest
+// monthly payment. Plan lengths change with the amount, so each increment
+// is quoted from live terms for (cart total + item price), not summed.
+app.post('/api/cart/quote', async (req, res) => {
+  const items = parseCartItems(req.body?.items, { allowEmpty: true })
+  if (!items) return res.status(400).json({ error: ERROR_MESSAGES.invalidRequest })
 
-  let service
+  let cart, catalog
   try {
-    // The price always comes from the catalog, never from the browser.
-    service = (await getCatalog()).find(s => s.id === serviceId) ??
-      (await getCatalog({ force: true })).find(s => s.id === serviceId)
+    cart = await priceCart(items)
+    catalog = await getCatalog()
   } catch (e) {
     console.error(`Catalog load failed: ${e.status ?? ''} ${e.message}`)
     return res.status(502).json({ error: ERROR_MESSAGES.catalogUnavailable })
   }
-  if (!service) return res.status(404).json({ error: ERROR_MESSAGES.unknownService })
+  if (!cart) return res.status(404).json({ error: ERROR_MESSAGES.unknownService })
+
+  const cartLow = cart.total > 0 ? await quoteAmount(cart.total) : null
+  const increments = Object.fromEntries(await Promise.all(catalog.map(async service => {
+    const low = await quoteAmount(cart.total + service.unit_price)
+    const delta = low ? low.monthly_payment - (cartLow?.monthly_payment ?? 0) : null
+    return [service.id, { as_low_as: low, delta }]
+  })))
+
+  res.set('Cache-Control', 'no-store').json({
+    lines: cart.lines,
+    total: cart.total,
+    as_low_as: cartLow,
+    increments
+  })
+})
+
+app.post('/api/checkout', async (req, res) => {
+  const { attempt_id: attemptId } = req.body ?? {}
+  const items = parseCartItems(req.body?.items)
+  const customer = parseCustomer(req.body?.customer)
+  if (!items || !customer || (attemptId !== undefined && !ATTEMPT_ID_PATTERN.test(attemptId))) {
+    return res.status(400).json({ error: ERROR_MESSAGES.invalidRequest })
+  }
+
+  let cart
+  try {
+    // Prices always come from the catalog, never from the browser.
+    cart = await priceCart(items)
+  } catch (e) {
+    console.error(`Catalog load failed: ${e.status ?? ''} ${e.message}`)
+    return res.status(502).json({ error: ERROR_MESSAGES.catalogUnavailable })
+  }
+  if (!cart) return res.status(404).json({ error: ERROR_MESSAGES.unknownService })
+  if (cart.total > MAX_CART_TOTAL) return res.status(422).json({ error: ERROR_MESSAGES.cartTooLarge })
 
   const origin = `${req.protocol}://${req.get('host')}`
-  // One drawer-open = one attempt id, so double submits replay the same session.
+  // One checkout attempt = one attempt id, so double submits replay the same
+  // session, while a changed cart gets a new one.
+  const cartKey = cart.lines.map(line => `${line.service_id}x${line.quantity}`).join(',')
   const idempotencyKey = attemptId
-    ? crypto.createHash('sha256').update(`${attemptId}:${service.id}:${customer.email}`).digest('hex')
+    ? crypto.createHash('sha256').update(`${attemptId}:${cartKey}:${customer.email}`).digest('hex')
     : undefined
 
   try {
     const session = await client.createCheckoutSession({
       oid: config.oid,
-      amount: service.unit_price,
+      amount: cart.total,
       customer,
-      services: [{ service_id: service.id, name: service.name, quantity: 1, amount: service.unit_price }],
+      services: cart.lines.map(line => ({
+        service_id: line.service_id,
+        name: line.name,
+        quantity: line.quantity,
+        amount: line.line_total
+      })),
       return_url: `${origin}/success.html`,
       cancel_url: `${origin}/#treatments`,
       metadata: { source: 'storefront-example' }

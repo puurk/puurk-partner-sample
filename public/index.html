@@ -42,6 +42,10 @@
         </nav>
         <div class="site-header__actions">
           <a href="tel:+14805550142" class="header-phone">(480) 555-0142</a>
+          <button type="button" class="cart-button" id="cart-button" aria-label="Open cart, 0 items">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13H7L6 7z"/><path d="M9 7a3 3 0 016 0"/></svg>
+            <span class="cart-button__count" id="cart-count" hidden>0</span>
+          </button>
           <a href="#treatments" class="btn btn--primary btn--sm">Book Now</a>
           <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
             <span></span><span></span><span></span>
@@ -325,29 +329,38 @@
     <header class="drawer__header">
       <div>
         <p class="eyebrow">Book &amp; Pay</p>
-        <h2 class="drawer__title" id="drawer-title">Your treatment</h2>
+        <h2 class="drawer__title" id="drawer-title">Your cart</h2>
       </div>
-      <button class="drawer__close" id="drawer-close" aria-label="Close checkout">
+      <button class="drawer__close" id="drawer-close" aria-label="Close cart">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </header>
 
     <ol class="drawer__progress" aria-label="Checkout progress">
-      <li data-step-indicator="details" class="is-active">Your details</li>
+      <li data-step-indicator="cart" class="is-active">Cart</li>
+      <li data-step-indicator="details">Your details</li>
       <li data-step-indicator="checkout">Plan &amp; payment</li>
       <li data-step-indicator="done">Confirmed</li>
     </ol>
 
     <div class="drawer__body">
-      <div class="order-summary" id="order-summary">
-        <img id="summary-image" src="" alt="" width="96" height="72">
-        <div>
-          <p class="order-summary__name" id="summary-name"></p>
-          <p class="order-summary__price"><span id="summary-price"></span><span class="order-summary__monthly" id="summary-monthly"></span></p>
+      <section data-step="cart">
+        <ul class="cart-lines" id="cart-lines" aria-live="polite"></ul>
+        <div class="cart-empty" id="cart-empty" hidden>
+          <p>Your cart is empty.</p>
+          <button type="button" class="btn btn--outline btn--sm" data-close-drawer>Browse treatments</button>
         </div>
-      </div>
+        <div class="cart-totals" id="cart-totals">
+          <div class="cart-totals__row"><span>Subtotal</span><strong id="cart-subtotal"></strong></div>
+          <p class="cart-totals__monthly" id="cart-monthly"></p>
+        </div>
+        <button type="button" class="btn btn--primary btn--block" id="cart-checkout">Checkout</button>
+        <button type="button" class="btn btn--outline btn--block cart-continue" data-close-drawer>Continue browsing</button>
+      </section>
 
-      <section data-step="details">
+      <div class="order-summary" id="order-summary" hidden></div>
+
+      <section data-step="details" hidden>
         <form id="details-form" class="form" novalidate>
           <div class="field">
             <label for="customer-name">Full name</label>
@@ -363,7 +376,8 @@
           </div>
           <p class="form__error" id="details-error" role="alert" hidden></p>
           <button type="submit" class="btn btn--primary btn--block" id="details-submit">Continue to payment options</button>
-          <p class="form__fine">You'll choose to pay in full or over time on the next step. Your details are shared with Puurk to set up your plan.</p>
+          <p class="form__fine" id="details-fine">You'll choose to pay in full or over time on the next step. Your details are shared with Puurk to set up your payment.</p>
+          <button type="button" class="text-button" data-goto-step="cart">← Back to cart</button>
         </form>
       </section>
 
@@ -389,12 +403,17 @@
             <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
           </div>
           <h3>You're all set!</h3>
-          <p id="confirmation-text">Your payment plan is confirmed. We'll be in touch shortly to schedule your appointment.</p>
+          <p id="confirmation-text">Your payment is confirmed. We'll be in touch shortly to schedule your appointment.</p>
           <a class="btn btn--primary" id="confirmation-link" href="/success.html">View confirmation</a>
         </div>
       </section>
     </div>
   </aside>
+
+  <div class="toast" id="cart-toast" role="status" aria-live="polite" hidden>
+    <span id="cart-toast-text"></span>
+    <button type="button" class="toast__action" id="cart-toast-view">View cart</button>
+  </div>
 
   <script src="/service_presentation.js"></script>
   <script src="/storefront.js"></script>
