@@ -238,42 +238,59 @@
   let activeCategory = 'all'
 
   /**
-   * The "as low as" line under a price. With an empty cart it shows the
-   * service's own lowest monthly payment; once the cart has items it shows
-   * how much adding the service raises the cart's lowest monthly payment.
+   * The cart line under a card's price. Shown only once the cart has items:
+   * how much adding the service changes the cart's lowest monthly payment.
    * @param {object} service Storefront service.
-   * @return {Array<Node|string>|null} Line contents, or null when unpriced.
+   * @return {Array<Node|string>|null} Line contents, or null when hidden.
    */
   function incrementContent (service) {
-    const increment = quote?.increments?.[service.id]
-    if (cart.size === 0 || !quote?.as_low_as) {
-      const low = increment?.as_low_as ?? service.as_low_as
-      if (!low) return null
-      return ['or as low as ', el('strong', { text: `${formatPrice(low.monthly_payment)}/mo` }), ' with', puurkLogo()]
-    }
+    if (cart.size === 0 || !quote?.as_low_as) return null
+    const increment = quote.increments?.[service.id]
     if (!increment?.as_low_as) return null
     if (increment.delta > 0) {
-      return ['Add for ', el('strong', { text: `+${formatPrice(increment.delta)}/mo` }), ' with', puurkLogo()]
+      return ['Adds ', el('strong', { text: `+${formatPrice(increment.delta)}/mo` }), ' to your cart']
     }
     // Longer plans unlock at higher totals, so adding can keep (or even
     // lower) the cart's lowest monthly payment.
-    if (increment.delta === 0) {
-      return ['Add for ', el('strong', { text: 'no extra per month' }), ' with', puurkLogo()]
-    }
-    return ['Add and pay as low as ', el('strong', { text: `${formatPrice(increment.as_low_as.monthly_payment)}/mo` }), ' with', puurkLogo()]
+    if (increment.delta === 0) return ['Adds ', el('strong', { text: 'nothing per month' }), ' to your cart']
+    return ['Your cart drops to ', el('strong', { text: `${formatPrice(increment.as_low_as.monthly_payment)}/mo` })]
   }
 
   /**
-   * Builds the pricing line element for a service.
+   * Builds a card's cart line element.
    * @param {object} service Storefront service.
    * @return {HTMLElement}
    */
   function incrementLine (service) {
-    const line = el('p', { class: 'as-low-as', 'data-increment-for': service.id })
+    const line = el('p', { class: 'price__increment', 'data-increment-for': service.id })
     const content = incrementContent(service)
     if (content) line.append(...content)
     else line.hidden = true
     return line
+  }
+
+  /**
+   * Builds a card's pricing: the lowest monthly payment leads, with paying in
+   * full as the secondary price. Without a plan quote, the full price leads.
+   * @param {object} service Storefront service.
+   * @param {string} variant Card variant, `card` or `package`.
+   * @return {HTMLElement}
+   */
+  function priceBlock (service, variant) {
+    const low = service.as_low_as
+    const full = formatPrice(service.unit_price)
+    if (!low) {
+      return el('div', { class: `price-block price-block--${variant}` }, [el('p', { class: 'price', text: full })])
+    }
+    const terms = [`for ${low.term_length} months`]
+    if (low.down_payment) terms.push(`${formatPrice(low.down_payment)} today`)
+    return el('div', { class: `price-block price-block--${variant}` }, [
+      el('p', { class: 'price__from', text: 'As low as' }),
+      el('p', { class: 'price' }, [formatPrice(low.monthly_payment), el('span', { class: 'price__per', text: '/mo' })]),
+      el('p', { class: 'price__terms' }, [terms.join(' · '), el('span', { class: 'price__with' }, ['with', puurkLogo(48)])]),
+      el('p', { class: 'price__full' }, ['or ', el('strong', { text: full }), ' paid in full']),
+      incrementLine(service)
+    ])
   }
 
   /** Updates every card's pricing line from the latest quote. */
@@ -320,10 +337,7 @@
         meta ? el('p', { class: 'card__meta', text: meta }) : '',
         el('p', { class: 'card__desc', text: look.blurb }),
         el('div', { class: 'card__pricing' }, [
-          el('div', {}, [
-            el('p', { class: 'price' }, [formatPrice(service.unit_price)]),
-            incrementLine(service)
-          ]),
+          priceBlock(service, 'card'),
           addButton(service, 'btn btn--primary btn--sm')
         ])
       ])
@@ -343,8 +357,7 @@
         el('p', { class: 'package__label', text: /series/i.test(look.duration || '') ? look.duration : 'Signature package' }),
         el('h3', { class: 'package__title', text: service.name }),
         el('p', { class: 'package__desc', text: look.blurb }),
-        el('p', { class: 'package__price', text: formatPrice(service.unit_price) }),
-        incrementLine(service),
+        priceBlock(service, 'package'),
         addButton(service, 'btn btn--light btn--sm')
       ])
     ])

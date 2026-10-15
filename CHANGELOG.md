@@ -28,8 +28,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   for the total with the items as line items. A new `POST /api/cart/quote`
   endpoint returns the cart's "as low as" plus, for every treatment, how much
   adding it changes the cart's lowest monthly payment. Cards show this as
-  "Add for +$X/mo", quoted from live terms because plan lengths change with
-  the amount.
+  "Adds +$X/mo to your cart", quoted from live terms because plan lengths
+  change with the amount.
+- PUU-2824: Every card leads with the monthly price ("As low as $X/mo", with
+  the plan length and amount due today) and shows paying in full as the
+  secondary price ("or $Y paid in full").
 - PUU-2824: The embedded checkout is styled with Lumière's brand through the
   `@puurk/js` `appearance` option, and offers pay in full alongside payment
   plans. `STOREFRONT_PAY_IN_FULL=false` passes `payInFull: false` for
