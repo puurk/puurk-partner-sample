@@ -17,7 +17,9 @@
     "tunnel": "ngrok http 4747",
     "storefront": "node src/storefront_server.js",
     "storefront:dev": "node --watch src/storefront_server.js",
-    "vendor-sdk": "node scripts/vendor-sdk.mjs"
+    "vendor-sdk": "node scripts/vendor-sdk.mjs",
+    "static": "node scripts/static-server.mjs",
+    "build:static": "node scripts/build-static.mjs"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

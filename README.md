@@ -276,43 +276,39 @@ the page, styled with the site's own colors and font. The checkout covers paying
 in full or picking a payment plan, signing the agreement and entering a card.
 
 ```
-Browser (public/)                  Storefront server (src/storefront_server.js)     Puurk API
-GET  /api/services        ───────▶ GET /organizations/{oid}/services           ───▶ catalog
-                                   GET /offers/terms (per amount, cached)      ───▶ "as low as"
-POST /api/cart/quote               cart priced SERVER-SIDE; terms for the cart
-  {items}                 ───────▶ total and for total + each item             ───▶ increments
-POST /api/checkout                 cart priced SERVER-SIDE from catalog
-  {items, customer}       ───────▶ POST /checkout/sessions (amount, services[])───▶ session
-                          ◀─────── { session_id }
+Browser (public/)                          Storefront server                        Puurk API
+GET  /api/services                ───────▶ GET /organizations/{oid}/services   ───▶ catalog (curated)
+Puurk.widgets.priceBlock / cartSummary ─── (publishable client id) ────────────────▶ POST /checkout/quotes
+POST /api/checkout {items, customer} ────▶ POST /checkout/sessions {items}     ───▶ session (Puurk prices it)
+                                   ◀────── { session_id }
 Puurk.checkout.mount('#puurk-checkout', session_id, { appearance, payInFull, onComplete, onError })
-  └─ the SDK talks to Puurk directly with the session id (no credentials in the browser)
+  └─ the SDK talks to Puurk directly with the session id
 ```
 
 The pieces worth copying into a real site:
 
-- **Credentials stay on your server.** The browser only ever receives a
-  checkout session id. `GET /config.js` exposes only the SDK environment and
-  display settings.
-- **Never trust a price from the browser.** The cart sends only service ids
-  and quantities. The server prices every line from the catalog it fetched
-  from Puurk, caps quantities, and sends Puurk the total as `amount` with the
-  lines as `services[]`. The line items are for display and record-keeping;
-  `amount` is what drives the plans.
-- **"As low as" is quoted, not added up.** Plan lengths change with the
-  amount: larger totals unlock longer plans. So the "+$X/mo" a treatment adds
-  to the cart is the lowest monthly payment for (cart total + its price) minus
-  the cart's own, both from live `GET /offers/terms`. Adding something can
-  even *lower* the monthly minimum, and the cards say so. Terms are cached per
-  amount.
+- **The secret stays on your server.** The browser receives a checkout
+  session id and the **publishable client id** (`PUURK_PUBLISHABLE_CLIENT_ID`),
+  which is safe in a page: Puurk only accepts it from its allowed origins, for
+  your organization, to read prices and start checkouts from catalog items.
+- **Puurk prices the cart.** The cart holds only service ids and quantities,
+  and the session is created with `items`. Puurk prices them from the catalog:
+  the amount is the sum of unit prices, the **down payment is the sum of each
+  service's down payment**, and plan lengths respect each service's term cap.
+  Nothing in the browser can change a price.
+- **Pricing widgets, not pricing code.** Each card mounts
+  `Puurk.widgets.priceBlock`: "As low as $X/mo" with the plan length, the
+  amount due today and the pay-in-full price, and once the cart has items,
+  what the treatment adds ("+$X/mo", or "Your cart drops to" when a longer
+  plan opens up). The drawer uses `Puurk.widgets.cartSummary`, and "See
+  plans" opens every plan. All the widgets on the page share one quote
+  request per cart change, and they match the checkout exactly because Puurk
+  prices both. They're styled from `storefront.css` through `--pk-*` CSS
+  variables.
 - **Match the checkout to your brand.** `mount()` takes an `appearance`
   (colors, font, radius, web fonts) that styles the embedded checkout,
   including Stripe's card fields. The embedded checkout doesn't repeat your
   business or customer name, because your page already shows that context.
-- **A down payment up front.** Payment plans collect 10% of the cart today
-  (`STOREFRONT_DOWN_PAYMENT_PERCENT`, 0 to finance it all). The server sends
-  it as the session's `down_payment` and passes the same amount to
-  `GET /offers/terms`, so the "as low as" prices match the plans offered at
-  checkout.
 - **Pay in full is your call.** The embedded checkout offers paying in full
   alongside payment plans. If you take full payments through another channel,
   set `STOREFRONT_PAY_IN_FULL=false`; the storefront passes `payInFull: false`
@@ -334,7 +330,7 @@ The pieces worth copying into a real site:
   (add-ons, per-unit pricing, internal entries). Set `STOREFRONT_SERVICE_IDS`
   to choose exactly what's sold online. Without it, the server takes a varied
   selection: one item per category in turn, within a price range, skipping
-  add-ons. Terms are only looked up for items that are on sale.
+  add-ons. Only services Puurk can sell online at a fixed price are offered.
 - **Merchant presentation is yours.** Puurk owns names and prices;
   `public/service_presentation.js` maps each service to a category tab, photo
   and marketing copy on the merchant side.
@@ -347,15 +343,63 @@ cp .env.example .env    # credential + provisioned sandbox oid (see Quick start)
 npm run storefront      # http://localhost:4848
 ```
 
-The credential needs `services:read`, `terms:read` and `checkout:write` on the
-organization; a partner credential has all three on the orgs it provisions.
-Without `terms:read` the site still works, just without "as low as" pricing.
+The credential needs `services:read` and `checkout:write` on the organization;
+a partner credential has both on the orgs it provisions. Without
+`PUURK_PUBLISHABLE_CLIENT_ID` the site still works, showing full prices only.
 In the sandbox, pay with test card `4242 4242 4242 4242` (any future expiry,
 any CVC). A completed checkout creates the client and either a payment plan
 with scheduled payments, or a single payment if the client paid in full. You
 can see them in the provider portal
 (`https://providersandbox.puurk.com`). It also fires a `checkout.completed`
 webhook if you've registered one (see [Webhooks](#webhooks)).
+
+### Static storefront (no server)
+
+The same site also runs with **no server-side code at all**, for integrators
+who only have static hosting. `static/config.js` is the only file to edit:
+
+```js
+window.STOREFRONT_CONFIG = {
+  mode: 'static',
+  environment: 'sandbox',
+  clientId: 'your-publishable-client-id',   // not a secret
+  oid: 'sandbox-org-yourslug',
+  puurkJsUrl: '/vendor/puurk.js',
+  payInFull: true,
+  serviceIds: []                            // optional curated menu
+}
+```
+
+```bash
+npm run static          # http://localhost:4849, a plain file server
+npm run build:static    # dist-static/: upload to any static host
+```
+
+In static mode the page does everything with the publishable client id:
+
+- the menu comes from `Puurk.catalog.services()` (Puurk's public catalog:
+  names, prices, down payments; never costs or internal notes);
+- pricing is the same widgets as above;
+- checkout is `Puurk.checkout.start({ cart, customer, container })`, which
+  creates the session from the cart's items and mounts it in the drawer. Add
+  `?checkout=modal` to the URL to use Puurk's modal (an iframe of the hosted
+  checkout) instead;
+- after an error, the page checks `Puurk.checkout.status(sessionId)` before
+  offering "Start again".
+
+**Getting a publishable client.** Ask Puurk (api@puurk.com) for one, listing
+every origin that will serve the site, for example `https://www.example.com`
+and `http://localhost:4849`. It's an API client with a public `checkout`
+scope bound to your organization, and Puurk rejects requests from any other
+origin or organization.
+
+**What you give up without a server:**
+
+- no `Idempotency-Key` (a double submit can create two sessions; only one
+  can be paid);
+- prices always come from the catalog, so no custom amounts or discounts;
+- `checkout.completed` webhooks still need an HTTPS endpoint you host. Without
+  one, see completed checkouts in the provider portal.
 
 ### The @puurk/js SDK
 
@@ -396,4 +440,6 @@ fictional business.
 | `npm run tunnel` | ngrok tunnel for local webhook testing |
 | `npm run storefront` | Example med-spa website with inline Puurk checkout (http://localhost:4848) |
 | `npm run storefront:dev` | Same, restarting on server code changes |
+| `npm run static` | The same storefront with no server, from `static/config.js` (http://localhost:4849) |
+| `npm run build:static` | Collect the static storefront into `dist-static/` for any static host |
 | `npm run vendor-sdk` | Build `@puurk/js` from `../puurk-js` into `public/vendor/puurk.js` |

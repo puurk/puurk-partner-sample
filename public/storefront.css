@@ -293,6 +293,26 @@ button { font: inherit; color: inherit; }
 .price-block--package .price__from,
 .price-block--package .price__terms { color: var(--accent-tint); }
 .price-block--package .price__full strong { color: var(--ivory); }
+
+/* Puurk pricing widgets (@puurk/js). They render in a shadow root, so they
+   are styled through their --pk-* variables, set here on the widget host. */
+.price-block [data-puurk-widget="price-block"] {
+  color: var(--espresso);
+  --pk-price-font-family: var(--font-display); --pk-price-size: 34px;
+  --pk-color-text-muted: var(--taupe); --pk-color-primary: var(--accent-dark);
+}
+.price-block--package [data-puurk-widget="price-block"] {
+  color: var(--ivory);
+  --pk-price-size: 40px; --pk-color-text-muted: var(--sand); --pk-color-primary: var(--accent-tint);
+}
+.price-block .price__terms { margin-top: 10px; }
+.price-block--package .price__terms { color: var(--accent-tint); }
+[data-puurk-widget="cart-summary"] {
+  color: var(--espresso);
+  --pk-color-text-muted: var(--espresso-soft); --pk-color-primary: var(--accent-dark); --pk-color-border: var(--sand);
+}
+[data-puurk-widget="plan-details"] { --pk-color-primary: var(--espresso); }
+
 .package .btn { margin-top: 22px; align-self: flex-start; }
 
 /* ---------- Payment plans ---------- */
@@ -498,10 +518,7 @@ a[href^="tel:"] { white-space: nowrap; }
 .cart-empty { text-align: center; padding: 40px 0; display: grid; gap: 16px; justify-items: center; color: var(--taupe); }
 .cart-totals { margin: 22px 0 18px; padding-top: 16px; border-top: 1px solid var(--sand); }
 .cart-totals__row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; }
-.cart-totals__row strong { font-family: var(--font-display); font-size: 30px; line-height: 1; }
-.cart-totals__monthly { margin-top: 8px; font-size: 14px; color: var(--espresso-soft); display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
-.cart-totals__monthly strong { color: var(--accent-dark); }
-.cart-totals__monthly img { height: 14px; width: auto; }
+
 .cart-continue { margin-top: 10px; }
 
 .toast {

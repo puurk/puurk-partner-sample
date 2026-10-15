@@ -3,12 +3,17 @@
  * organization's services with prices and takes Puurk checkout inline on
  * the page with @puurk/js (`Puurk.checkout.mount`).
  *
- * The server holds the API credential and does the things a browser must
- * never do itself:
- *   1. read the live catalog and "as low as" pricing (GET /api/services)
- *   2. price the cart and its "as low as" increments (POST /api/cart/quote)
- *   3. create a checkout session at the server-side cart total (POST /api/checkout)
- * The browser only ever receives a session id.
+ * Pricing on the page ("as low as", what each treatment adds to the cart,
+ * the cart summary) comes from the @puurk/js widgets, using a publishable
+ * client id. The server holds the secret API credential and does what the
+ * merchant wants to keep server-side:
+ *   1. curate the online menu from the live catalog (GET /api/services)
+ *   2. create the checkout session from the cart's items, with an
+ *      idempotency key and its own metadata (POST /api/checkout). Puurk
+ *      prices the items: amount, down payment and plan lengths all come
+ *      from the services.
+ *   3. look up a session's real outcome (GET /api/checkout/:id/status)
+ * See static/ for the same site with no server at all.
  */
 
 const crypto = require('crypto')
@@ -31,15 +36,10 @@ const MAX_NAME_LENGTH = 100
 const MAX_PHONE_LENGTH = 32
 const MAX_CART_LINES = 20
 const MAX_LINE_QUANTITY = 10
-// checkout-service rejects session amounts above $1,000,000.
-const MAX_CART_TOTAL = 100000000
-const TERMS_CACHE_MAX_ENTRIES = 500
-const TERMS_FAILURE_TTL_MS = 30 * 1000
 
 const ERROR_MESSAGES = {
   invalidRequest: 'Please check your details and try again.',
   unknownService: 'That treatment is no longer available.',
-  cartTooLarge: 'Your cart is too large to check out online. Please call us to book.',
   merchantNotReady: 'Online payment plans are not available for this treatment right now.',
   catalogUnavailable: 'Our treatment menu is temporarily unavailable.',
   checkoutUnavailable: 'We could not start checkout. Please try again.'
@@ -58,63 +58,15 @@ if (!ENVIRONMENTS.has(config.puurkEnvironment)) {
   process.exit(1)
 }
 
+if (!config.publishableClientId) {
+  console.warn('PUURK_PUBLISHABLE_CLIENT_ID is not set: the page will show full prices only, without Puurk payment plan pricing.')
+}
+
 const client = new PuurkClient(config)
 let catalogCache = { items: null, fetchedAt: 0 }
 let catalogInFlight = null
-const termsCache = new Map()
 // Sessions this server created; only these can be looked up from the browser.
 const createdSessionIds = new Set()
-
-/**
- * The down payment collected up front for a price.
- * @param {number} amount Price in cents.
- * @return {number} Down payment in cents.
- */
-function downPaymentFor (amount) {
-  return Math.round(amount * config.storefrontDownPaymentPercent / 100)
-}
-
-/**
- * Finds the lowest monthly payment Puurk offers for a price, after the
- * storefront's down payment.
- * @param {number} amount Price in cents.
- * @return {Promise<{monthly_payment: number, term_length: number, down_payment: number}|null>}
- *   Lowest-payment plan, or null when terms aren't available (e.g. the
- *   credential lacks terms:read, or the amount is too small for a plan).
- */
-async function lowestMonthlyPayment (amount) {
-  try {
-    const downPayment = downPaymentFor(amount)
-    const { terms } = await client.getTerms({ purchase_amount: amount, down_payment: downPayment, oid: config.oid })
-    const plans = (terms ?? []).filter(t => t.term_length > 1 && t.monthly_payment > 0)
-    if (plans.length === 0) return null
-    const lowest = plans.reduce((min, t) => (t.monthly_payment < min.monthly_payment ? t : min))
-    return { monthly_payment: lowest.monthly_payment, term_length: lowest.term_length, down_payment: downPayment }
-  } catch (e) {
-    console.warn(`Terms lookup failed for ${amount}: ${e.status ?? e.message}`)
-    return null
-  }
-}
-
-/**
- * Cached "as low as" for an amount. Cart quotes ask for many amounts
- * (cart total, and cart total plus each item), so results are cached and
- * concurrent lookups for the same amount share one request. Failed lookups
- * (null) are cached too, but only briefly.
- * @param {number} amount Price in cents.
- * @return {Promise<{monthly_payment: number, term_length: number, down_payment: number}|null>}
- */
-function quoteAmount (amount) {
-  const hit = termsCache.get(amount)
-  if (hit && Date.now() < hit.expiresAt) return hit.promise
-  const promise = lowestMonthlyPayment(amount)
-  termsCache.set(amount, { promise, expiresAt: Date.now() + CATALOG_TTL_MS })
-  promise.then(result => {
-    if (result === null) termsCache.set(amount, { promise, expiresAt: Date.now() + TERMS_FAILURE_TTL_MS })
-  })
-  if (termsCache.size > TERMS_CACHE_MAX_ENTRIES) termsCache.delete(termsCache.keys().next().value)
-  return promise
-}
 
 /**
  * Picks up to `limit` items, taking one per catalog category in turn so the
@@ -170,17 +122,19 @@ function curate (sellable) {
 }
 
 /**
- * Loads the storefront's catalog from Puurk with "as low as" pricing attached.
+ * Loads the storefront's menu from the Puurk catalog. Only services Puurk
+ * can sell online are offered: active services and packages with a fixed
+ * price (adjustable prices are set per plan by the provider).
  * @return {Promise<Array<object>>} Storefront-shaped services.
  */
 async function loadCatalog () {
   const services = await client.listOrgServices(config.oid)
   const sellable = curate((Array.isArray(services) ? services : [])
-    .filter(s => s.active !== false && SELLABLE_TYPES.has(s.type) && Number.isInteger(s.unit_price) && s.unit_price > 0))
-
-  // Terms are looked up only for what's on sale, once per distinct price.
-  const prices = [...new Set(sellable.map(s => s.unit_price))]
-  const lowestByPrice = new Map(await Promise.all(prices.map(async p => [p, await quoteAmount(p)])))
+    .filter(s => s.active !== false &&
+      SELLABLE_TYPES.has(s.type) &&
+      s.adjustable_price !== true &&
+      Number.isInteger(s.unit_price) &&
+      s.unit_price > 0))
 
   return sellable
     .map(s => ({
@@ -190,8 +144,7 @@ async function loadCatalog () {
       category: s.category ?? null,
       type: s.type,
       is_package: s.is_package === true || s.type === 'package',
-      unit_price: s.unit_price,
-      as_low_as: lowestByPrice.get(s.unit_price) ?? null
+      unit_price: s.unit_price
     }))
     .sort((a, b) => Number(a.is_package) - Number(b.is_package) || a.unit_price - b.unit_price)
 }
@@ -256,39 +209,29 @@ function parseCartItems (input, { allowEmpty = false } = {}) {
 }
 
 /**
- * Prices cart items against the catalog (refreshing it once if an id is
- * unknown).
+ * Whether every cart item is on the online menu (refreshing the menu once
+ * if an id is unknown). Puurk prices the items; this only keeps the cart to
+ * what the merchant chose to sell online.
  * @param {Array<{service_id: string, quantity: number}>} items Parsed cart.
- * @return {Promise<{lines: Array<object>, total: number}|null>} Null when an
- *   item isn't for sale.
+ * @return {Promise<boolean>}
  */
-async function priceCart (items) {
-  const find = (catalog, id) => catalog.find(s => s.id === id)
-  let catalog = await getCatalog()
-  if (items.some(item => !find(catalog, item.service_id))) catalog = await getCatalog({ force: true })
-  const lines = []
-  for (const item of items) {
-    const service = find(catalog, item.service_id)
-    if (!service) return null
-    lines.push({
-      service_id: service.id,
-      name: service.name,
-      unit_price: service.unit_price,
-      quantity: item.quantity,
-      line_total: service.unit_price * item.quantity
-    })
-  }
-  return { lines, total: lines.reduce((sum, line) => sum + line.line_total, 0) }
+async function onMenu (items) {
+  const known = catalog => items.every(item => catalog.some(s => s.id === item.service_id))
+  return known(await getCatalog()) || known(await getCatalog({ force: true }))
 }
 
 const app = express()
 app.disable('x-powered-by')
 app.use(express.json({ limit: '16kb' }))
 
-// Browser config: environment and SDK location only, never credentials.
+// Browser config: environment, SDK location and the publishable client id.
+// Never the secret API credential.
 app.get('/config.js', (req, res) => {
   const browserConfig = {
+    mode: 'server',
     environment: config.puurkEnvironment,
+    clientId: config.publishableClientId || undefined,
+    oid: config.oid,
     puurkJsUrl: config.puurkJsUrl,
     payInFull: config.storefrontPayInFull,
     apiUrl: config.puurkJsApiUrl || undefined
@@ -306,38 +249,6 @@ app.get('/api/services', async (req, res) => {
   }
 })
 
-// Prices a cart and shows what each catalog item would add to its lowest
-// monthly payment. Plan lengths change with the amount, so each increment
-// is quoted from live terms for (cart total + item price), not summed.
-app.post('/api/cart/quote', async (req, res) => {
-  const items = parseCartItems(req.body?.items, { allowEmpty: true })
-  if (!items) return res.status(400).json({ error: ERROR_MESSAGES.invalidRequest })
-
-  let cart, catalog
-  try {
-    cart = await priceCart(items)
-    catalog = await getCatalog()
-  } catch (e) {
-    console.error(`Catalog load failed: ${e.status ?? ''} ${e.message}`)
-    return res.status(502).json({ error: ERROR_MESSAGES.catalogUnavailable })
-  }
-  if (!cart) return res.status(404).json({ error: ERROR_MESSAGES.unknownService })
-
-  const cartLow = cart.total > 0 ? await quoteAmount(cart.total) : null
-  const increments = Object.fromEntries(await Promise.all(catalog.map(async service => {
-    const low = await quoteAmount(cart.total + service.unit_price)
-    const delta = low ? low.monthly_payment - (cartLow?.monthly_payment ?? 0) : null
-    return [service.id, { as_low_as: low, delta }]
-  })))
-
-  res.set('Cache-Control', 'no-store').json({
-    lines: cart.lines,
-    total: cart.total,
-    as_low_as: cartLow,
-    increments
-  })
-})
-
 app.post('/api/checkout', async (req, res) => {
   const { attempt_id: attemptId } = req.body ?? {}
   const items = parseCartItems(req.body?.items)
@@ -346,37 +257,28 @@ app.post('/api/checkout', async (req, res) => {
     return res.status(400).json({ error: ERROR_MESSAGES.invalidRequest })
   }
 
-  let cart
   try {
-    // Prices always come from the catalog, never from the browser.
-    cart = await priceCart(items)
+    if (!await onMenu(items)) return res.status(404).json({ error: ERROR_MESSAGES.unknownService })
   } catch (e) {
     console.error(`Catalog load failed: ${e.status ?? ''} ${e.message}`)
     return res.status(502).json({ error: ERROR_MESSAGES.catalogUnavailable })
   }
-  if (!cart) return res.status(404).json({ error: ERROR_MESSAGES.unknownService })
-  if (cart.total > MAX_CART_TOTAL) return res.status(422).json({ error: ERROR_MESSAGES.cartTooLarge })
 
   const origin = `${req.protocol}://${req.get('host')}`
   // One checkout attempt = one attempt id, so double submits replay the same
   // session, while a changed cart gets a new one.
-  const cartKey = cart.lines.map(line => `${line.service_id}x${line.quantity}`).join(',')
+  const cartKey = items.map(item => `${item.service_id}x${item.quantity}`).join(',')
   const idempotencyKey = attemptId
     ? crypto.createHash('sha256').update(`${attemptId}:${cartKey}:${customer.email}`).digest('hex')
     : undefined
 
   try {
+    // Only service ids and quantities: Puurk prices them from the catalog,
+    // including each service's down payment and plan-length cap.
     const session = await client.createCheckoutSession({
       oid: config.oid,
-      amount: cart.total,
-      down_payment: downPaymentFor(cart.total),
+      items,
       customer,
-      services: cart.lines.map(line => ({
-        service_id: line.service_id,
-        name: line.name,
-        quantity: line.quantity,
-        amount: line.line_total
-      })),
       return_url: `${origin}/success.html`,
       cancel_url: `${origin}/#treatments`,
       metadata: { source: 'storefront-example' }
@@ -389,6 +291,9 @@ app.post('/api/checkout', async (req, res) => {
       if (e.status === 422 && MERCHANT_NOT_READY_CODES.has(e.body?.code)) {
         return res.status(422).json({ error: ERROR_MESSAGES.merchantNotReady })
       }
+      // Puurk no longer sells one of the items online (inactive, repriced
+      // per plan, or removed since the menu was cached).
+      if (e.status === 422) return res.status(422).json({ error: ERROR_MESSAGES.unknownService })
     } else {
       console.error(`Session create failed: ${e.message}`)
     }

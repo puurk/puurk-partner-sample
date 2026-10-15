@@ -39,11 +39,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   `@puurk/js` `appearance` option, and offers pay in full alongside payment
   plans. `STOREFRONT_PAY_IN_FULL=false` passes `payInFull: false` for
   integrators who take full payments elsewhere.
-- PUU-2824: Payment plans take a 10% down payment by default, so something
-  is paid up front. The storefront sends it as the session's `down_payment`
-  and uses it for every "as low as" quote, and the cart shows it as
-  "$X today, then as low as $Y/mo". `STOREFRONT_DOWN_PAYMENT_PERCENT`
-  changes it (0 finances the whole amount).
+- PUU-2836: Static storefront with no server (`static/config.js`,
+  `npm run static`, `npm run build:static`). The same page loads the menu
+  from `Puurk.catalog.services()`, prices it with the `@puurk/js` widgets,
+  and checks out with `Puurk.checkout.start()` using a publishable client id,
+  inline in the drawer or in Puurk's modal (`?checkout=modal`).
+
+### Changed
+
+- PUU-2836: Card, cart and order pricing now come from the `@puurk/js`
+  widgets (`priceBlock`, `cartSummary`, "See plans") with a publishable
+  client id (`PUURK_PUBLISHABLE_CLIENT_ID`), and the cart is `Puurk.cart()`.
+  The server no longer quotes terms or prices the cart: `POST /api/checkout`
+  sends the cart's `items` and Puurk prices them, taking each service's down
+  payment and term cap from the catalog. `POST /api/cart/quote` and
+  `STOREFRONT_DOWN_PAYMENT_PERCENT` are removed, since down payments are set
+  on the services.
 - `PuurkClient` methods for the service catalog and checkout sessions.
 
 ## [v0.2.1]

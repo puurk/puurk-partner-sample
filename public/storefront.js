@@ -1,24 +1,34 @@
 /**
- * Storefront behavior: renders the live catalog, keeps a shopping cart
- * with live "as low as" pricing, and runs the checkout drawer that mounts
- * Puurk's inline checkout (@puurk/js) on this page.
+ * Storefront behavior: renders the catalog, keeps a shopping cart, shows
+ * Puurk pricing with the @puurk/js widgets, and runs the checkout drawer
+ * that embeds Puurk's checkout on this page.
  *
- * Flow: Add to cart → Cart → customer details → POST /api/checkout (our
- * server creates the Puurk session at the server-priced cart total) →
- * Puurk.checkout.mount() → onComplete → confirmation.
+ * The same page runs two ways (window.STOREFRONT_CONFIG.mode):
+ * - `server`: our server curates the menu (GET /api/services) and creates
+ *   the Puurk session from the cart's items (POST /api/checkout), then the
+ *   page mounts it with Puurk.checkout.mount().
+ * - `static`: no server at all. The menu comes from Puurk.catalog.services()
+ *   and Puurk.checkout.start() creates and mounts the session from the cart
+ *   with the publishable client id.
+ *
+ * Either way the browser only sends service ids and quantities; Puurk prices
+ * them, including each service's down payment and plan lengths, so the
+ * widgets and the checkout always agree.
  */
 (function () {
   'use strict'
 
-  const config = window.STOREFRONT_CONFIG || { environment: 'sandbox', puurkJsUrl: '/vendor/puurk.js', payInFull: true }
+  const config = window.STOREFRONT_CONFIG || { mode: 'server', environment: 'sandbox', puurkJsUrl: '/vendor/puurk.js', payInFull: true }
+  const isStatic = config.mode === 'static'
   const present = window.SERVICE_PRESENTATION
   const CONFIRMATION_DELAY_MS = 1400
   const STATUS_CHECK_WINDOW_MS = 75 * 1000
   const STATUS_CHECK_INTERVAL_MS = 3000
-  const QUOTE_DEBOUNCE_MS = 150
+  const SESSION_LIFETIME_MS = 30 * 60 * 1000
   const TOAST_MS = 3500
   const MAX_LINE_QUANTITY = 10
   const CART_STORAGE_KEY = 'lumiere-cart'
+  const checkoutMode = new URLSearchParams(location.search).get('checkout') === 'modal' ? 'modal' : 'inline'
 
   // Lumière's brand, passed to the embedded Puurk checkout so it matches
   // the rest of the site (including Stripe's card fields).
@@ -38,6 +48,12 @@
     borderRadius: '10px',
     fonts: [{ cssSrc: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap' }]
   }
+
+  // The pricing widgets inherit the page's font and text color. Their
+  // colors and the headline price font are set from storefront.css
+  // (`[data-puurk-widget]` rules), so only the plan-details dialog's font
+  // is passed here.
+  const WIDGET_APPEARANCE = { fontFamily: CHECKOUT_APPEARANCE.fontFamily, borderRadius: '10px' }
 
   const $ = (selector, root = document) => root.querySelector(selector)
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector))
@@ -86,92 +102,46 @@
   // SDK loading
   // ---------------------------------------------------------------------
 
-  let sdkPromise = null
+  let Puurk = null
 
   /**
-   * Loads @puurk/js once and configures it for this storefront's environment.
+   * Loads @puurk/js and configures it with this storefront's environment
+   * and publishable client id.
    * @return {Promise<object>} The global Puurk SDK.
    */
   function loadPuurk () {
-    if (!sdkPromise) {
-      sdkPromise = new Promise((resolve, reject) => {
-        const script = el('script', { src: config.puurkJsUrl, async: true })
-        script.onload = () => {
-          if (!window.Puurk) return reject(new Error('Puurk SDK did not load'))
-          window.Puurk.configure(config.apiUrl
-            ? { environment: config.environment, apiUrl: config.apiUrl }
-            : { environment: config.environment })
-          resolve(window.Puurk)
-        }
-        script.onerror = () => reject(new Error('Puurk SDK failed to load'))
-        document.head.append(script)
-      }).catch(e => {
-        sdkPromise = null
-        throw e
-      })
-    }
-    return sdkPromise
+    return new Promise((resolve, reject) => {
+      const script = el('script', { src: config.puurkJsUrl, async: true })
+      script.onload = () => {
+        if (!window.Puurk) return reject(new Error('Puurk SDK did not load'))
+        window.Puurk.configure({
+          environment: config.environment,
+          clientId: config.clientId,
+          oid: config.oid,
+          ...(config.apiUrl ? { apiUrl: config.apiUrl } : {})
+        })
+        resolve(window.Puurk)
+      }
+      script.onerror = () => reject(new Error('Puurk SDK failed to load'))
+      document.head.append(script)
+    })
+  }
+
+  /** @return {boolean} Whether Puurk pricing can be shown (needs a publishable client id). */
+  function pricingEnabled () {
+    return Boolean(Puurk && config.clientId && config.oid)
   }
 
   // ---------------------------------------------------------------------
   // Cart
   // ---------------------------------------------------------------------
 
-  // service id → quantity, in the order items were added.
-  const cart = new Map()
-  let quote = null
-  let quoteSeq = 0
-  let quoteTimer = null
-
-  /** Restores the cart saved in this browser (best effort). */
-  function loadCart () {
-    try {
-      const saved = JSON.parse(localStorage.getItem(CART_STORAGE_KEY) || '[]')
-      for (const item of Array.isArray(saved) ? saved : []) {
-        if (typeof item?.service_id === 'string' && Number.isInteger(item.quantity) && item.quantity > 0) {
-          cart.set(item.service_id, Math.min(item.quantity, MAX_LINE_QUANTITY))
-        }
-      }
-    } catch {
-      // Storage unavailable (private mode, blocked): start with an empty cart.
-    }
-  }
-
-  /** Saves the cart in this browser (best effort). */
-  function saveCart () {
-    try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems()))
-    } catch {
-      // Storage unavailable: the cart still works for this page view.
-    }
-  }
-
-  /**
-   * The cart as API items.
-   * @return {Array<{service_id: string, quantity: number}>}
-   */
-  function cartItems () {
-    return [...cart].map(([serviceId, quantity]) => ({ service_id: serviceId, quantity }))
-  }
+  // Puurk.cart(): service ids and quantities only, saved in this browser.
+  let cart = null
 
   /** @return {number} Total quantity in the cart. */
   function cartCount () {
-    return [...cart.values()].reduce((sum, quantity) => sum + quantity, 0)
-  }
-
-  /**
-   * Sets a line's quantity (0 removes it) and refreshes everything priced
-   * off the cart.
-   * @param {string} serviceId
-   * @param {number} quantity
-   */
-  function setQuantity (serviceId, quantity) {
-    if (quantity <= 0) cart.delete(serviceId)
-    else cart.set(serviceId, Math.min(quantity, MAX_LINE_QUANTITY))
-    saveCart()
-    renderCartBadge()
-    renderCart()
-    refreshQuote()
+    return cart ? cart.count : 0
   }
 
   /**
@@ -179,55 +149,27 @@
    * @param {object} service Storefront service.
    */
   function addToCart (service) {
-    const current = cart.get(service.id) ?? 0
-    if (current >= MAX_LINE_QUANTITY) {
+    if (cart.quantityOf(service.id) >= MAX_LINE_QUANTITY) {
       showToast(`You can book up to ${MAX_LINE_QUANTITY} of each treatment online.`)
       return
     }
-    setQuantity(service.id, current + 1)
+    cart.add(service.id)
     showToast(`${service.name} added to your cart.`)
   }
 
   /** Drops cart lines whose service is no longer on the menu. */
   function pruneCart () {
     const ids = new Set(catalog.map(s => s.id))
-    let changed = false
-    for (const id of [...cart.keys()]) {
-      if (!ids.has(id)) {
-        cart.delete(id)
-        changed = true
-      }
+    for (const item of cart.items) {
+      if (!ids.has(item.service_id)) cart.remove(item.service_id)
     }
-    if (changed) saveCart()
   }
 
-  /**
-   * Asks our server to price the cart and the "as low as" increments.
-   * Debounced; out-of-order responses are ignored.
-   */
-  function refreshQuote () {
-    clearTimeout(quoteTimer)
-    quoteTimer = setTimeout(async () => {
-      const seq = ++quoteSeq
-      try {
-        const res = await fetch('/api/cart/quote', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items: cartItems() })
-        })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const body = await res.json()
-        if (seq !== quoteSeq) return
-        quote = body
-      } catch (e) {
-        console.error('Cart quote failed', e)
-        if (seq !== quoteSeq) return
-        quote = null
-      }
-      renderIncrements()
-      renderCart()
-      renderOrderSummary()
-    }, QUOTE_DEBOUNCE_MS)
+  /** Re-renders everything that shows the cart. */
+  function onCartChange () {
+    renderCartBadge()
+    renderCart()
+    renderAddButtons()
   }
 
   // ---------------------------------------------------------------------
@@ -236,65 +178,50 @@
 
   let catalog = []
   let activeCategory = 'all'
+  // Price widgets per grid, destroyed when the grid re-renders.
+  const priceWidgets = { treatments: [], packages: [] }
 
   /**
-   * What a card's headline price says. With an empty cart it's the item's
-   * own lowest monthly payment. Once the cart has items, it's what adding the
-   * item does to the cart's lowest monthly payment, quoted from live terms
-   * because plan lengths change with the amount.
-   * @param {object} service Storefront service.
-   * @return {{label: string, price: string, plan: object, cart: boolean}|null} Headline, or
-   *   null when the item has no plan quote.
-   */
-  function headline (service) {
-    const increment = quote?.increments?.[service.id]
-    if (cart.size > 0 && quote?.as_low_as && increment?.as_low_as) {
-      const plan = increment.as_low_as
-      // Longer plans unlock at higher totals, so adding an item can lower
-      // the cart's lowest monthly payment.
-      if (increment.delta < 0) {
-        return { label: 'Your cart drops to', price: formatPrice(plan.monthly_payment), plan, cart: true }
-      }
-      return { label: 'Adds to your cart', price: `+${formatPrice(increment.delta)}`, plan, cart: true }
-    }
-    if (!service.as_low_as) return null
-    return { label: 'As low as', price: formatPrice(service.as_low_as.monthly_payment), plan: service.as_low_as, cart: false }
-  }
-
-  /**
-   * Builds a card's pricing: the monthly price leads, with paying in full as
-   * the secondary price. Without a plan quote, the full price leads.
+   * A card's pricing slot. With Puurk pricing it becomes a price block
+   * widget: "As low as $X/mo", or "+$X/mo" once the cart has items. Without
+   * it, the full price.
    * @param {object} service Storefront service.
    * @param {string} variant Card variant, `card` or `package`.
    * @return {HTMLElement}
    */
-  function priceBlock (service, variant) {
-    const attrs = { class: `price-block price-block--${variant}`, 'data-price-for': service.id, 'data-variant': variant }
-    const full = formatPrice(service.unit_price)
-    const head = headline(service)
-    if (!head) return el('div', attrs, [el('p', { class: 'price', text: full })])
-    const { plan } = head
-    // In the cart view the plan line describes the whole cart after adding.
-    const terms = head.cart
-      ? [`Cart: ${formatPrice(plan.monthly_payment)}/mo for ${plan.term_length} months`]
-      : [`for ${plan.term_length} months`]
-    if (plan.down_payment && !head.cart) terms.push(`${formatPrice(plan.down_payment)} today`)
-    return el('div', attrs, [
-      el('p', { class: 'price__from', text: head.label }),
-      el('p', { class: 'price' }, [head.price, el('span', { class: 'price__per', text: '/mo' })]),
-      el('p', { class: 'price__terms' }, [terms.join(' · '), el('span', { class: 'price__with' }, ['with', puurkLogo(48)])]),
-      el('p', { class: 'price__full' }, ['or ', el('strong', { text: full }), ' paid in full'])
+  function priceSlot (service, variant) {
+    if (!pricingEnabled()) {
+      return el('div', { class: `price-block price-block--${variant}` }, [el('p', { class: 'price', text: formatPrice(service.unit_price) })])
+    }
+    return el('div', { class: `price-block price-block--${variant}` }, [
+      el('div', { 'data-price-for': service.id }),
+      el('p', { class: 'price__terms' }, [el('span', { class: 'price__with' }, ['Pay over time with', puurkLogo(48)])])
     ])
   }
 
-  /** Updates every card's pricing from the latest quote. */
-  function renderIncrements () {
-    for (const block of $$('[data-price-for]')) {
-      const service = catalog.find(s => s.id === block.dataset.priceFor)
-      if (service) block.replaceWith(priceBlock(service, block.dataset.variant))
+  /**
+   * Mounts a price block widget in every pricing slot of a grid.
+   * @param {HTMLElement} grid The grid that was just rendered.
+   * @param {'treatments'|'packages'} key Which grid.
+   */
+  function mountPrices (grid, key) {
+    priceWidgets[key].forEach(widget => widget.destroy())
+    priceWidgets[key] = []
+    if (!pricingEnabled()) return
+    for (const slot of $$('[data-price-for]', grid)) {
+      priceWidgets[key].push(Puurk.widgets.priceBlock(slot, {
+        serviceId: slot.dataset.priceFor,
+        cart,
+        payInFull: config.payInFull !== false,
+        appearance: WIDGET_APPEARANCE
+      }))
     }
+  }
+
+  /** Updates the add-to-cart buttons with what's already in the cart. */
+  function renderAddButtons () {
     for (const button of $$('[data-add-to-cart]')) {
-      const quantity = cart.get(button.dataset.addToCart) ?? 0
+      const quantity = cart ? cart.quantityOf(button.dataset.addToCart) : 0
       button.textContent = quantity > 0 ? `In cart (${quantity}) · Add` : 'Add to cart'
       button.classList.toggle('is-in-cart', quantity > 0)
     }
@@ -328,7 +255,7 @@
         meta ? el('p', { class: 'card__meta', text: meta }) : '',
         el('p', { class: 'card__desc', text: look.blurb }),
         el('div', { class: 'card__pricing' }, [
-          priceBlock(service, 'card'),
+          priceSlot(service, 'card'),
           addButton(service, 'btn btn--primary btn--sm')
         ])
       ])
@@ -348,7 +275,7 @@
         el('p', { class: 'package__label', text: /series/i.test(look.duration || '') ? look.duration : 'Signature package' }),
         el('h3', { class: 'package__title', text: service.name }),
         el('p', { class: 'package__desc', text: look.blurb }),
-        priceBlock(service, 'package'),
+        priceSlot(service, 'package'),
         addButton(service, 'btn btn--light btn--sm')
       ])
     ])
@@ -365,7 +292,8 @@
     }
     grid.setAttribute('aria-busy', 'false')
     grid.setAttribute('aria-labelledby', `tab-${activeCategory}`)
-    renderIncrements()
+    mountPrices(grid, 'treatments')
+    renderAddButtons()
     observeReveals(grid)
   }
 
@@ -374,39 +302,70 @@
     const packages = catalog.filter(s => s.is_package)
     $('#packages').hidden = packages.length === 0
     $('#package-grid').replaceChildren(...packages.map(packageCard))
-    renderIncrements()
+    mountPrices($('#package-grid'), 'packages')
+    renderAddButtons()
     observeReveals($('#package-grid'))
   }
 
-  /** Fills the announcement bar and example plan with real "as low as" pricing. */
-  function renderPricingHighlights () {
-    const priced = catalog.filter(s => s.as_low_as)
+  /**
+   * Fills the announcement bar and example plan with real "as low as"
+   * pricing: one quote prices every menu item on its own.
+   */
+  async function renderPricingHighlights () {
+    if (!pricingEnabled() || catalog.length === 0) return
+    let quote
+    try {
+      quote = await Puurk.catalog.quote([], catalog.map(s => s.id))
+    } catch (e) {
+      console.warn('Pricing highlights unavailable', e)
+      return
+    }
+    const priced = catalog
+      .map(service => ({ service, increment: quote.increments[service.id] }))
+      .filter(({ increment }) => increment?.as_low_as)
     if (priced.length === 0) return
-    const lowest = priced.reduce((min, s) => (s.as_low_as.monthly_payment < min.as_low_as.monthly_payment ? s : min))
-    $('[data-lowest-monthly-amount]').textContent = formatPrice(lowest.as_low_as.monthly_payment)
+
+    const lowest = priced.reduce((min, p) => (p.increment.as_low_as.monthly_payment < min.increment.as_low_as.monthly_payment ? p : min))
+    $('[data-lowest-monthly-amount]').textContent = formatPrice(Math.ceil(lowest.increment.as_low_as.monthly_payment / 100) * 100)
     $('[data-lowest-monthly]').hidden = false
 
-    const showcase = [...priced].sort((a, b) => b.unit_price - a.unit_price)[0]
+    const { service, increment } = [...priced].sort((a, b) => b.service.unit_price - a.service.unit_price)[0]
     $('[data-example-plan]').textContent =
-      `${formatPrice(showcase.as_low_as.monthly_payment)}/mo × ${showcase.as_low_as.term_length}`
-    const downPayment = showcase.as_low_as.down_payment
-    $('.plan-chip__meta').textContent = downPayment
-      ? `${showcase.name} · ${formatPrice(showcase.unit_price)} · ${formatPrice(downPayment)} down`
-      : `${showcase.name} · ${formatPrice(showcase.unit_price)}`
+      `${formatPrice(Math.ceil(increment.as_low_as.monthly_payment / 100) * 100)}/mo × ${increment.as_low_as.term_length}`
+    $('.plan-chip__meta').textContent = increment.down_payment
+      ? `${service.name} · ${formatPrice(service.unit_price)} · ${formatPrice(increment.down_payment)} down`
+      : `${service.name} · ${formatPrice(service.unit_price)}`
   }
 
-  /** Loads the catalog from our server and renders it. */
+  /**
+   * The online menu with no server: Puurk's public catalog, or just the
+   * services listed in config.serviceIds (in that order), up to a limit.
+   * @return {Promise<Array<object>>} Storefront services.
+   */
+  async function loadStaticCatalog () {
+    const ids = Array.isArray(config.serviceIds) && config.serviceIds.length > 0 ? config.serviceIds : null
+    const services = await Puurk.catalog.services(ids ? { ids } : {})
+    const ordered = ids ? ids.map(id => services.find(s => s.id === id)).filter(Boolean) : services
+    const treatments = ordered.filter(s => !s.is_package).slice(0, config.maxServices ?? 12)
+    const packages = ordered.filter(s => s.is_package).slice(0, config.maxPackages ?? 4)
+    return [...treatments, ...packages]
+  }
+
+  /** Loads the catalog (from our server, or from Puurk on the static site) and renders it. */
   async function loadCatalog () {
     try {
-      const res = await fetch('/api/services')
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      catalog = (await res.json()).services || []
+      if (isStatic) {
+        catalog = await loadStaticCatalog()
+      } else {
+        const res = await fetch('/api/services')
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        catalog = (await res.json()).services || []
+      }
       pruneCart()
       renderCartBadge()
       renderTreatments()
       renderPackages()
       renderPricingHighlights()
-      refreshQuote()
     } catch (e) {
       console.error('Catalog failed to load', e)
       $('#treatment-grid').replaceChildren()
@@ -451,36 +410,21 @@
   }
 
   /**
-   * The cart's "or as low as" line.
-   * @return {Array<Node|string>|null}
+   * The cart's lines with their menu entries, for display. Puurk prices the
+   * cart at checkout; these are only for the line list.
+   * @return {Array<{service: object, quantity: number, line_total: number}>}
    */
-  function cartMonthlyContent () {
-    if (!quote?.as_low_as || cart.size === 0) return null
-    const { monthly_payment: monthly, down_payment: downPayment } = quote.as_low_as
-    if (!downPayment) return ['or as low as ', el('strong', { text: `${formatPrice(monthly)}/mo` }), ' with', puurkLogo(58)]
-    return [
-      'or ', el('strong', { text: formatPrice(downPayment) }), ' today, then as low as ',
-      el('strong', { text: `${formatPrice(monthly)}/mo` }), ' with', puurkLogo(58)
-    ]
+  function cartLines () {
+    if (!cart) return []
+    return cart.items
+      .map(item => ({ service: catalog.find(s => s.id === item.service_id), quantity: item.quantity }))
+      .filter(line => line.service)
+      .map(line => ({ ...line, line_total: line.service.unit_price * line.quantity }))
   }
 
-  /**
-   * Prices the cart locally from the catalog, for instant feedback while a
-   * quote is in flight. The server reprices everything at checkout.
-   * @return {{lines: Array<object>, total: number}}
-   */
-  function localCart () {
-    const lines = []
-    for (const [serviceId, quantity] of cart) {
-      const service = catalog.find(s => s.id === serviceId)
-      if (service) lines.push({ service, quantity, line_total: service.unit_price * quantity })
-    }
-    return { lines, total: lines.reduce((sum, line) => sum + line.line_total, 0) }
-  }
-
-  /** Renders the editable cart step. */
+  /** Renders the editable cart step. The totals underneath are a cart summary widget. */
   function renderCart () {
-    const { lines, total } = localCart()
+    const lines = cartLines()
     const list = $('#cart-lines')
     list.replaceChildren(...lines.map(({ service, quantity, line_total: lineTotal }) => {
       const look = present(service)
@@ -505,25 +449,21 @@
     $('#cart-empty').hidden = !empty
     $('#cart-totals').hidden = empty
     $('#cart-checkout').hidden = empty
-    $('#cart-subtotal').textContent = formatPrice(total)
-    const monthly = cartMonthlyContent()
-    $('#cart-monthly').replaceChildren(...(monthly || []))
-    $('#cart-monthly').hidden = !monthly
   }
 
-  /** Renders the compact order summary shown above details and payment. */
-  function renderOrderSummary () {
-    const { lines, total } = localCart()
-    const monthly = cartMonthlyContent()
-    $('#order-summary').replaceChildren(
-      el('ul', { class: 'order-summary__lines' }, lines.map(({ service, quantity, line_total: lineTotal }) =>
-        el('li', {}, [
-          el('span', { text: quantity > 1 ? `${service.name} × ${quantity}` : service.name }),
-          el('span', { text: formatPrice(lineTotal) })
-        ]))),
-      el('div', { class: 'order-summary__total' }, [el('span', { text: 'Total' }), el('strong', { text: formatPrice(total) })]),
-      monthly ? el('p', { class: 'order-summary__monthly' }, monthly) : ''
-    )
+  /**
+   * Mounts the cart summary widgets: totals in the cart step, and the
+   * itemized order summary above details and payment. They update
+   * themselves whenever the cart changes.
+   */
+  function mountCartSummaries () {
+    if (!pricingEnabled()) {
+      $('#cart-totals').replaceChildren(el('p', { class: 'cart-totals__row', text: 'Payment options are shown at checkout.' }))
+      return
+    }
+    const options = { cart, payInFull: config.payInFull !== false, appearance: WIDGET_APPEARANCE }
+    Puurk.widgets.cartSummary('#cart-totals', { ...options, lines: false })
+    Puurk.widgets.cartSummary('#order-summary', options)
   }
 
   // ---------------------------------------------------------------------
@@ -561,7 +501,6 @@
     })
     $('#drawer-title').textContent = STEP_TITLES[step]
     $('#order-summary').hidden = step !== 'details' && step !== 'checkout'
-    if (step === 'details' || step === 'checkout') renderOrderSummary()
     if (step === 'cart') renderCart()
     $('.drawer__body', drawer).scrollTop = 0
   }
@@ -610,10 +549,8 @@
 
   /** Moves from the cart to customer details. */
   function goToDetails () {
-    if (cart.size === 0) return
+    if (cartCount() === 0) return
     state.attemptId = newAttemptId()
-    // Start loading the SDK while the customer types.
-    loadPuurk().catch(() => {})
     showStep('details')
     setTimeout(() => $('#customer-name').focus(), 50)
   }
@@ -672,7 +609,8 @@
       fields[firstInvalid].focus()
       return null
     }
-    return customer
+    // Phone is optional; leave it out rather than sending an empty value.
+    return customer.phone ? customer : { name: customer.name, email: customer.email }
   }
 
   /**
@@ -680,12 +618,12 @@
    * @param {{name: string, email: string, phone: string}} customer
    * @return {Promise<{session_id: string, expires_at: string}>}
    */
-  async function createSession (customer) {
+  async function createServerSession (customer) {
     const res = await fetch('/api/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      // Only service ids and quantities are sent; the server decides prices.
-      body: JSON.stringify({ items: cartItems(), attempt_id: state.attemptId, customer })
+      // Only service ids and quantities are sent; Puurk decides prices.
+      body: JSON.stringify({ items: cart.items, attempt_id: state.attemptId, customer })
     })
     const body = await res.json().catch(() => ({}))
     if (!res.ok) {
@@ -697,46 +635,77 @@
   }
 
   /**
-   * Creates a session and mounts the inline Puurk checkout in the drawer.
+   * Callbacks shared by both ways of starting the embedded checkout.
+   * @param {function(): string|null} sessionId Returns the session id once known.
+   * @return {object} Puurk checkout options.
+   */
+  function checkoutOptions (sessionId) {
+    return {
+      appearance: CHECKOUT_APPEARANCE,
+      payInFull: config.payInFull !== false,
+      onComplete: result => {
+        clearTimeout(state.expiryTimer)
+        setTimeout(() => showConfirmation(result), checkoutMode === 'modal' ? 0 : CONFIRMATION_DELAY_MS)
+      },
+      onCancel: () => {
+        if (checkoutMode === 'modal') showProblem('Checkout was closed before it finished. You can start again.')
+      },
+      onError: error => {
+        console.error('Puurk checkout error', error)
+        const id = sessionId()
+        if (id) recoverFromError(id)
+        else showProblem('We could not load secure checkout. Please try again.')
+      }
+    }
+  }
+
+  /**
+   * Creates a session for the cart and shows the Puurk checkout in the
+   * drawer (or, with ?checkout=modal on the static site, in Puurk's modal).
    * @param {{name: string, email: string, phone: string}} customer
    */
   async function startCheckout (customer) {
     resetCheckoutArea()
     showStep('checkout')
-    state.purchased = localCart().lines.map(({ service, quantity }) => ({ name: service.name, quantity }))
+    state.purchased = cartLines().map(({ service, quantity }) => ({ name: service.name, quantity }))
 
-    let session, Puurk
+    let sessionId = null
+    let expiresAt = null
     try {
-      [session, Puurk] = await Promise.all([createSession(customer), loadPuurk()])
+      if (isStatic) {
+        // No server: Puurk creates the session from the cart with the
+        // publishable client id, then mounts it.
+        const started = await Puurk.checkout.start({
+          cart,
+          customer,
+          ...(checkoutMode === 'modal' ? { mode: 'modal' } : { container: '#puurk-checkout' }),
+          clearCart: false,
+          metadata: { source: 'storefront-static-example' },
+          ...checkoutOptions(() => sessionId)
+        })
+        state.controller = started
+        sessionId = started.sessionId
+        expiresAt = started.expiresAt
+      } else {
+        const session = await createServerSession(customer)
+        sessionId = session.session_id
+        expiresAt = session.expires_at
+        state.controller = await Puurk.checkout.mount('#puurk-checkout', sessionId, checkoutOptions(() => sessionId))
+      }
+      $('#checkout-loading').hidden = true
+      if (checkoutMode === 'modal') {
+        $('#checkout-loading p').textContent = 'Finish your payment in the secure Puurk window.'
+        $('#checkout-loading').hidden = false
+      }
     } catch (e) {
       console.error('Checkout could not start', e)
       showProblem(e.customerMessage || 'We could not start checkout. Please try again.')
       return
     }
 
-    try {
-      state.controller = await Puurk.checkout.mount('#puurk-checkout', session.session_id, {
-        appearance: CHECKOUT_APPEARANCE,
-        payInFull: config.payInFull !== false,
-        onComplete: result => {
-          clearTimeout(state.expiryTimer)
-          setTimeout(() => showConfirmation(result), CONFIRMATION_DELAY_MS)
-        },
-        onError: error => {
-          console.error('Puurk checkout error', error)
-          recoverFromError(session.session_id)
-        }
-      })
-      $('#checkout-loading').hidden = true
-    } catch (e) {
-      console.error('Puurk checkout failed to mount', e)
-      showProblem('We could not load secure checkout. Please try again.')
-      return
-    }
-
     // Sessions expire (30 minutes). The embedded UI shows an expiry notice;
     // give the customer a one-click way to begin a fresh session.
-    const msUntilExpiry = Date.parse(session.expires_at) - Date.now()
+    const msUntilExpiry = expiresAt ? Date.parse(expiresAt) - Date.now() : SESSION_LIFETIME_MS
     if (Number.isFinite(msUntilExpiry) && msUntilExpiry > 0) {
       state.expiryTimer = setTimeout(() => {
         showProblem('This checkout timed out for your security. Start again to pick up where you left off.')
@@ -745,12 +714,14 @@
   }
 
   /**
-   * Asks our server for the session's real outcome.
+   * Looks up the session's real outcome: from our server, or straight from
+   * Puurk on the static site.
    * @param {string} sessionId
    * @return {Promise<{status: string, contract_id: string|null}|null>} Null when unknown.
    */
   async function fetchSessionStatus (sessionId) {
     try {
+      if (isStatic) return await Puurk.checkout.status(sessionId)
       const res = await fetch(`/api/checkout/${encodeURIComponent(sessionId)}/status`, { cache: 'no-store' })
       return res.ok ? await res.json() : null
     } catch {
@@ -821,9 +792,6 @@
     if (result.contract_id) params.set('contract_id', result.contract_id)
     $('#confirmation-link').href = `/success.html?${params}`
     cart.clear()
-    saveCart()
-    renderCartBadge()
-    refreshQuote()
     showStep('done')
   }
 
@@ -858,18 +826,18 @@
       const add = e.target.closest('[data-add-to-cart]')
       if (add) {
         const service = catalog.find(s => s.id === add.dataset.addToCart)
-        if (service) addToCart(service)
+        if (service && cart) addToCart(service)
         return
       }
       const step = e.target.closest('[data-qty-step]')
       if (step) {
         const id = step.dataset.service
-        setQuantity(id, (cart.get(id) ?? 0) + Number(step.dataset.qtyStep))
+        cart.setQuantity(id, cart.quantityOf(id) + Number(step.dataset.qtyStep))
         return
       }
       const remove = e.target.closest('[data-remove]')
       if (remove) {
-        setQuantity(remove.dataset.remove, 0)
+        cart.remove(remove.dataset.remove)
         return
       }
       if (e.target.closest('[data-close-drawer]')) closeDrawer()
@@ -959,13 +927,36 @@
     nav.addEventListener('click', e => { if (e.target.closest('a')) setOpen(false) })
   }
 
+  /** Loads the SDK, then the cart, widgets and catalog. */
+  async function start () {
+    try {
+      Puurk = await loadPuurk()
+    } catch (e) {
+      console.error(e)
+      $('#treatment-grid').replaceChildren()
+      $('#treatment-grid').setAttribute('aria-busy', 'false')
+      $('#catalog-error').hidden = false
+      return
+    }
+    if (isStatic && !pricingEnabled()) {
+      console.error('The static storefront needs clientId and oid in config.js')
+      $('#catalog-error').hidden = false
+      return
+    }
+    // The same storage key as before, so saved carts carry over.
+    cart = Puurk.cart({ persist: CART_STORAGE_KEY })
+    cart.on('change', onCartChange)
+    renderCartBadge()
+    mountCartSummaries()
+    await loadCatalog()
+  }
+
   document.documentElement.classList.remove('no-js')
   $('#year').textContent = String(new Date().getFullYear())
-  loadCart()
   renderCartBadge()
   setupHeader()
   setupTabs()
   setupCartAndDrawer()
   observeReveals()
-  loadCatalog()
+  start()
 })()
