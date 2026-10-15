@@ -66,19 +66,30 @@ const termsCache = new Map()
 const createdSessionIds = new Set()
 
 /**
- * Finds the lowest monthly payment Puurk offers for a price.
+ * The down payment collected up front for a price.
  * @param {number} amount Price in cents.
- * @return {Promise<{monthly_payment: number, term_length: number}|null>}
+ * @return {number} Down payment in cents.
+ */
+function downPaymentFor (amount) {
+  return Math.round(amount * config.storefrontDownPaymentPercent / 100)
+}
+
+/**
+ * Finds the lowest monthly payment Puurk offers for a price, after the
+ * storefront's down payment.
+ * @param {number} amount Price in cents.
+ * @return {Promise<{monthly_payment: number, term_length: number, down_payment: number}|null>}
  *   Lowest-payment plan, or null when terms aren't available (e.g. the
  *   credential lacks terms:read, or the amount is too small for a plan).
  */
 async function lowestMonthlyPayment (amount) {
   try {
-    const { terms } = await client.getTerms({ purchase_amount: amount, oid: config.oid })
+    const downPayment = downPaymentFor(amount)
+    const { terms } = await client.getTerms({ purchase_amount: amount, down_payment: downPayment, oid: config.oid })
     const plans = (terms ?? []).filter(t => t.term_length > 1 && t.monthly_payment > 0)
     if (plans.length === 0) return null
     const lowest = plans.reduce((min, t) => (t.monthly_payment < min.monthly_payment ? t : min))
-    return { monthly_payment: lowest.monthly_payment, term_length: lowest.term_length }
+    return { monthly_payment: lowest.monthly_payment, term_length: lowest.term_length, down_payment: downPayment }
   } catch (e) {
     console.warn(`Terms lookup failed for ${amount}: ${e.status ?? e.message}`)
     return null
@@ -91,7 +102,7 @@ async function lowestMonthlyPayment (amount) {
  * concurrent lookups for the same amount share one request. Failed lookups
  * (null) are cached too, but only briefly.
  * @param {number} amount Price in cents.
- * @return {Promise<{monthly_payment: number, term_length: number}|null>}
+ * @return {Promise<{monthly_payment: number, term_length: number, down_payment: number}|null>}
  */
 function quoteAmount (amount) {
   const hit = termsCache.get(amount)
@@ -358,6 +369,7 @@ app.post('/api/checkout', async (req, res) => {
     const session = await client.createCheckoutSession({
       oid: config.oid,
       amount: cart.total,
+      down_payment: downPaymentFor(cart.total),
       customer,
       services: cart.lines.map(line => ({
         service_id: line.service_id,

@@ -34,6 +34,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   `@puurk/js` `appearance` option, and offers pay in full alongside payment
   plans. `STOREFRONT_PAY_IN_FULL=false` passes `payInFull: false` for
   integrators who take full payments elsewhere.
+- PUU-2824: Payment plans take a 10% down payment by default, so something
+  is paid up front. The storefront sends it as the session's `down_payment`
+  and uses it for every "as low as" quote, and the cart shows it as
+  "$X today, then as low as $Y/mo". `STOREFRONT_DOWN_PAYMENT_PERCENT`
+  changes it (0 finances the whole amount).
 - `PuurkClient` methods for the service catalog and checkout sessions.
 
 ## [v0.2.1]

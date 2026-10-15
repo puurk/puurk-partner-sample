@@ -308,6 +308,11 @@ The pieces worth copying into a real site:
   (colors, font, radius, web fonts) that styles the embedded checkout,
   including Stripe's card fields. The embedded checkout doesn't repeat your
   business or customer name, because your page already shows that context.
+- **A down payment up front.** Payment plans collect 10% of the cart today
+  (`STOREFRONT_DOWN_PAYMENT_PERCENT`, 0 to finance it all). The server sends
+  it as the session's `down_payment` and passes the same amount to
+  `GET /offers/terms`, so the "as low as" prices match the plans offered at
+  checkout.
 - **Pay in full is your call.** The embedded checkout offers paying in full
   alongside payment plans. If you take full payments through another channel,
   set `STOREFRONT_PAY_IN_FULL=false`; the storefront passes `payInFull: false`

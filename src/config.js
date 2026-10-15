@@ -21,6 +21,9 @@ const config = {
   // Offer "Pay in full" in the embedded checkout. Set to false when full
   // payments are taken through another channel.
   storefrontPayInFull: process.env.STOREFRONT_PAY_IN_FULL !== 'false',
+  // Share of each cart collected up front as a down payment on plans, in
+  // percent (0-100). Applied to "as low as" quotes and checkout sessions.
+  storefrontDownPaymentPercent: Math.min(Math.max(Number(process.env.STOREFRONT_DOWN_PAYMENT_PERCENT ?? 10) || 0, 0), 100),
   // @puurk/js environment the browser checkout talks to; must match the
   // environment PUURK_API_BASE_URL points at.
   puurkEnvironment: process.env.PUURK_ENVIRONMENT || 'sandbox',

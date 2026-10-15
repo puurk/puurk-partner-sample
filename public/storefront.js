@@ -385,7 +385,10 @@
     const showcase = [...priced].sort((a, b) => b.unit_price - a.unit_price)[0]
     $('[data-example-plan]').textContent =
       `${formatPrice(showcase.as_low_as.monthly_payment)}/mo × ${showcase.as_low_as.term_length}`
-    $('.plan-chip__meta').textContent = `${showcase.name} · ${formatPrice(showcase.unit_price)}`
+    const downPayment = showcase.as_low_as.down_payment
+    $('.plan-chip__meta').textContent = downPayment
+      ? `${showcase.name} · ${formatPrice(showcase.unit_price)} · ${formatPrice(downPayment)} down`
+      : `${showcase.name} · ${formatPrice(showcase.unit_price)}`
   }
 
   /** Loads the catalog from our server and renders it. */
@@ -449,7 +452,12 @@
    */
   function cartMonthlyContent () {
     if (!quote?.as_low_as || cart.size === 0) return null
-    return ['or as low as ', el('strong', { text: `${formatPrice(quote.as_low_as.monthly_payment)}/mo` }), ' with', puurkLogo(58)]
+    const { monthly_payment: monthly, down_payment: downPayment } = quote.as_low_as
+    if (!downPayment) return ['or as low as ', el('strong', { text: `${formatPrice(monthly)}/mo` }), ' with', puurkLogo(58)]
+    return [
+      'or ', el('strong', { text: formatPrice(downPayment) }), ' today, then as low as ',
+      el('strong', { text: `${formatPrice(monthly)}/mo` }), ' with', puurkLogo(58)
+    ]
   }
 
   /**
