@@ -1,4 +1,4 @@
-/*! @puurk/js v1.2.0 (de1c3b2) — vendored by scripts/vendor-sdk.mjs */
+/*! @puurk/js v1.2.0 (bd4ef23) — vendored by scripts/vendor-sdk.mjs */
 (function(q,V){typeof exports=="object"&&typeof module<"u"?module.exports=V():typeof define=="function"&&define.amd?define(V):(q=typeof globalThis<"u"?globalThis:q||self,q.Puurk=V())})(this,(function(){"use strict";const q={staging:"https://checkoutstaging.puurk.com",demo:"https://checkoutdemo.puurk.com",sandbox:"https://checkoutsandbox.puurk.com",production:"https://checkout.puurk.com"},V={staging:"https://apistaging.puurk.com",demo:"https://apidemo.puurk.com",sandbox:"https://apisandbox.puurk.com",production:"https://api.puurk.com"};let R={environment:"production"};function ht(t){t.environment&&(R={...R,environment:t.environment}),"checkoutUrl"in t&&(R={...R,checkoutUrl:t.checkoutUrl}),"apiUrl"in t&&(R={...R,apiUrl:t.apiUrl})}function ge(){return R.checkoutUrl??q[R.environment]}function mt(){return R.apiUrl??V[R.environment]}function yt(t){window.location.href=`${ge()}/s/${t}`}class W extends Error{constructor(e,r,n){super(r),this.name="PuurkError",this.code=e,this.status=n}}const gt=`
   position: fixed;
   top: 0;
