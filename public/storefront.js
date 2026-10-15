@@ -238,69 +238,60 @@
   let activeCategory = 'all'
 
   /**
-   * The cart line under a card's price. Shown only once the cart has items:
-   * how much adding the service changes the cart's lowest monthly payment.
+   * What a card's headline price says. With an empty cart it's the item's
+   * own lowest monthly payment. Once the cart has items, it's what adding the
+   * item does to the cart's lowest monthly payment, quoted from live terms
+   * because plan lengths change with the amount.
    * @param {object} service Storefront service.
-   * @return {Array<Node|string>|null} Line contents, or null when hidden.
+   * @return {{label: string, price: string, plan: object, cart: boolean}|null} Headline, or
+   *   null when the item has no plan quote.
    */
-  function incrementContent (service) {
-    if (cart.size === 0 || !quote?.as_low_as) return null
-    const increment = quote.increments?.[service.id]
-    if (!increment?.as_low_as) return null
-    if (increment.delta > 0) {
-      return ['Adds ', el('strong', { text: `+${formatPrice(increment.delta)}/mo` }), ' to your cart']
+  function headline (service) {
+    const increment = quote?.increments?.[service.id]
+    if (cart.size > 0 && quote?.as_low_as && increment?.as_low_as) {
+      const plan = increment.as_low_as
+      // Longer plans unlock at higher totals, so adding an item can lower
+      // the cart's lowest monthly payment.
+      if (increment.delta < 0) {
+        return { label: 'Your cart drops to', price: formatPrice(plan.monthly_payment), plan, cart: true }
+      }
+      return { label: 'Adds to your cart', price: `+${formatPrice(increment.delta)}`, plan, cart: true }
     }
-    // Longer plans unlock at higher totals, so adding can keep (or even
-    // lower) the cart's lowest monthly payment.
-    if (increment.delta === 0) return ['Adds ', el('strong', { text: 'nothing per month' }), ' to your cart']
-    return ['Your cart drops to ', el('strong', { text: `${formatPrice(increment.as_low_as.monthly_payment)}/mo` })]
+    if (!service.as_low_as) return null
+    return { label: 'As low as', price: formatPrice(service.as_low_as.monthly_payment), plan: service.as_low_as, cart: false }
   }
 
   /**
-   * Builds a card's cart line element.
-   * @param {object} service Storefront service.
-   * @return {HTMLElement}
-   */
-  function incrementLine (service) {
-    const line = el('p', { class: 'price__increment', 'data-increment-for': service.id })
-    const content = incrementContent(service)
-    if (content) line.append(...content)
-    else line.hidden = true
-    return line
-  }
-
-  /**
-   * Builds a card's pricing: the lowest monthly payment leads, with paying in
-   * full as the secondary price. Without a plan quote, the full price leads.
+   * Builds a card's pricing: the monthly price leads, with paying in full as
+   * the secondary price. Without a plan quote, the full price leads.
    * @param {object} service Storefront service.
    * @param {string} variant Card variant, `card` or `package`.
    * @return {HTMLElement}
    */
   function priceBlock (service, variant) {
-    const low = service.as_low_as
+    const attrs = { class: `price-block price-block--${variant}`, 'data-price-for': service.id, 'data-variant': variant }
     const full = formatPrice(service.unit_price)
-    if (!low) {
-      return el('div', { class: `price-block price-block--${variant}` }, [el('p', { class: 'price', text: full })])
-    }
-    const terms = [`for ${low.term_length} months`]
-    if (low.down_payment) terms.push(`${formatPrice(low.down_payment)} today`)
-    return el('div', { class: `price-block price-block--${variant}` }, [
-      el('p', { class: 'price__from', text: 'As low as' }),
-      el('p', { class: 'price' }, [formatPrice(low.monthly_payment), el('span', { class: 'price__per', text: '/mo' })]),
+    const head = headline(service)
+    if (!head) return el('div', attrs, [el('p', { class: 'price', text: full })])
+    const { plan } = head
+    // In the cart view the plan line describes the whole cart after adding.
+    const terms = head.cart
+      ? [`Cart: ${formatPrice(plan.monthly_payment)}/mo for ${plan.term_length} months`]
+      : [`for ${plan.term_length} months`]
+    if (plan.down_payment && !head.cart) terms.push(`${formatPrice(plan.down_payment)} today`)
+    return el('div', attrs, [
+      el('p', { class: 'price__from', text: head.label }),
+      el('p', { class: 'price' }, [head.price, el('span', { class: 'price__per', text: '/mo' })]),
       el('p', { class: 'price__terms' }, [terms.join(' · '), el('span', { class: 'price__with' }, ['with', puurkLogo(48)])]),
-      el('p', { class: 'price__full' }, ['or ', el('strong', { text: full }), ' paid in full']),
-      incrementLine(service)
+      el('p', { class: 'price__full' }, ['or ', el('strong', { text: full }), ' paid in full'])
     ])
   }
 
-  /** Updates every card's pricing line from the latest quote. */
+  /** Updates every card's pricing from the latest quote. */
   function renderIncrements () {
-    for (const line of $$('[data-increment-for]')) {
-      const service = catalog.find(s => s.id === line.dataset.incrementFor)
-      if (!service) continue
-      const content = incrementContent(service)
-      line.replaceChildren(...(content || []))
-      line.hidden = !content
+    for (const block of $$('[data-price-for]')) {
+      const service = catalog.find(s => s.id === block.dataset.priceFor)
+      if (service) block.replaceWith(priceBlock(service, block.dataset.variant))
     }
     for (const button of $$('[data-add-to-cart]')) {
       const quantity = cart.get(button.dataset.addToCart) ?? 0

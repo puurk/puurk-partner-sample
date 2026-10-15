@@ -260,8 +260,6 @@ button { font: inherit; color: inherit; }
 .price__terms img { height: 12px; width: auto; display: inline-block; transform: translateY(1px); }
 .price__full { margin-top: 6px; font-size: 14px; color: var(--espresso-soft); }
 .price__full strong { font-weight: 600; color: var(--espresso); }
-.price__increment { margin-top: 10px; font-size: 13px; color: var(--espresso-soft); }
-.price__increment strong { color: var(--accent-dark); font-weight: 600; }
 
 .card--skeleton { min-height: 520px; background: linear-gradient(100deg, var(--cream) 30%, var(--ivory) 50%, var(--cream) 70%) 0 0 / 300% 100%; animation: shimmer 1.6s linear infinite; border: 0; box-shadow: none; }
 .card--skeleton:hover { transform: none; box-shadow: none; }
@@ -291,12 +289,10 @@ button { font: inherit; color: inherit; }
 .price-block--package { margin-top: 22px; }
 .price-block--package .price { font-size: 40px; }
 .price-block--package .price__per,
-.price-block--package .price__full,
-.price-block--package .price__increment { color: var(--sand); }
+.price-block--package .price__full { color: var(--sand); }
 .price-block--package .price__from,
 .price-block--package .price__terms { color: var(--accent-tint); }
 .price-block--package .price__full strong { color: var(--ivory); }
-.price-block--package .price__increment strong { color: var(--accent-tint); }
 .package .btn { margin-top: 22px; align-self: flex-start; }
 
 /* ---------- Payment plans ---------- */

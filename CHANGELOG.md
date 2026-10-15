@@ -27,12 +27,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   whole cart from the catalog, caps quantities, and creates one Puurk session
   for the total with the items as line items. A new `POST /api/cart/quote`
   endpoint returns the cart's "as low as" plus, for every treatment, how much
-  adding it changes the cart's lowest monthly payment. Cards show this as
-  "Adds +$X/mo to your cart", quoted from live terms because plan lengths
-  change with the amount.
-- PUU-2824: Every card leads with the monthly price ("As low as $X/mo", with
-  the plan length and amount due today) and shows paying in full as the
-  secondary price ("or $Y paid in full").
+  adding it changes the cart's lowest monthly payment, quoted from live terms
+  because plan lengths change with the amount.
+- PUU-2824: Every card leads with the monthly price and shows paying in full
+  as the secondary price ("or $Y paid in full"). With an empty cart the
+  headline is the item's own "As low as $X/mo", with the plan length and
+  amount due today. Once the cart has items, the headline becomes what the
+  item adds to the cart ("+$X/mo"), with the cart's resulting monthly
+  payment beneath it.
 - PUU-2824: The embedded checkout is styled with Lumière's brand through the
   `@puurk/js` `appearance` option, and offers pay in full alongside payment
   plans. `STOREFRONT_PAY_IN_FULL=false` passes `payInFull: false` for
