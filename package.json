@@ -1,6 +1,6 @@
 {
   "name": "puurk-partner-sample",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Sample partner integration that exercises the Puurk REST API and webhooks",
   "private": true,
   "main": "src/index.js",
@@ -14,10 +14,20 @@
     "webhook:dev": "node --watch src/webhook_server.js",
     "register-webhook": "node src/register_webhook.js",
     "send-test-event": "node src/send_test_event.js",
-    "tunnel": "ngrok http 4747"
+    "tunnel": "ngrok http 4747",
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.7.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.13.0",
+    "supertest": "^7.3.1",
+    "vitest": "^5.0.5"
   }
 }

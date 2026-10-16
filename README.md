@@ -250,8 +250,27 @@ where `v1 = hex(HMAC-SHA256(secret, "<t>." + raw_body_bytes))`. Verify
 against the **exact raw request bytes** (not a re-serialized parse), compare
 with a constant-time comparison, and reject stale timestamps (this sample
 allows 300 s of drift). `src/verify_signature.js` is a complete reference
-implementation; the receiver in `src/webhook_server.js` shows the wiring
+implementation; the receiver in `src/webhook_app.js` shows the wiring
 (note `express.raw(...)` to preserve the body bytes).
+
+### Rate limiting your receiver
+
+Your webhook URL is public, so the receiver rate limits deliveries per client
+IP with [`express-rate-limit`](https://www.npmjs.com/package/express-rate-limit)
+before checking the signature. Requests over the limit get `429` with
+`Retry-After` and `RateLimit` headers. Rejected deliveries count toward the
+limit too, so anyone probing signatures is throttled as well.
+
+- `WEBHOOK_RATE_LIMIT_PER_MINUTE` (default 600) sets the limit. Keep it well
+  above your peak event volume: Puurk treats any non-2xx response, `429`
+  included, as a failed delivery and retries it with backoff, so a limit
+  that's too tight only delays your events.
+- The receiver trusts `X-Forwarded-For` only from a loopback proxy (`trust
+  proxy` = `loopback`), which covers a local ngrok tunnel. Behind a hosted
+  load balancer, set `trust proxy` to that proxy's address or hop count.
+  Otherwise every delivery appears to come from the proxy and shares one limit.
+- The limiter keeps its counters in memory. Running several instances needs
+  a shared store (for example Redis) so the limit applies across them.
 
 ### Local end-to-end test
 
@@ -279,3 +298,16 @@ npm run tunnel           # optional: expose via ngrok, then register-webhook
 | `npm run register-webhook` | Register `WEBHOOK_PUBLIC_URL` with Puurk |
 | `npm run send-test-event` | POST a locally signed event to the receiver |
 | `npm run tunnel` | ngrok tunnel for local webhook testing |
+| `npm run lint` | ESLint over `src/` and `tests/` |
+| `npm test` | Offline unit tests (vitest): signature verification, the webhook receiver, and the API client against a mocked `fetch` |
+
+## Development
+
+The scripts above run on Node.js 20+. The lint and test tooling needs
+Node.js 22.12+.
+
+Every pull request runs `npm run lint` and `npm test` (the required `test`
+check). PRs from branches in this repository also get an automated Claude
+code review, and are approved automatically when the review finds nothing
+blocking and the tests pass. PRs from forks skip the automated review and are
+reviewed by a maintainer.

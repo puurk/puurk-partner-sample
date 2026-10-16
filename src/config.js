@@ -9,7 +9,8 @@ const config = {
   webhookPath: process.env.WEBHOOK_PATH || '/webhook',
   webhookSecret: process.env.WEBHOOK_SECRET || '',
   webhookPublicUrl: process.env.WEBHOOK_PUBLIC_URL || '',
-  signatureToleranceSeconds: Number(process.env.SIGNATURE_TOLERANCE_SECONDS || 300)
+  signatureToleranceSeconds: Number(process.env.SIGNATURE_TOLERANCE_SECONDS || 300),
+  webhookRateLimitPerMinute: Number(process.env.WEBHOOK_RATE_LIMIT_PER_MINUTE || 600)
 }
 
 function requireCredentials () {
