@@ -111,6 +111,13 @@ button { font: inherit; color: inherit; }
 
 /* ---------- Announcement + header ---------- */
 
+.demo-notice {
+  padding: 10px 24px; background: #FFF4D6; color: #4A3A12;
+  border-bottom: 1px solid #E8D29A;
+  font-size: 13.5px; line-height: 1.45; text-align: center;
+}
+.demo-notice strong { font-weight: 600; }
+
 .announcement {
   display: flex; justify-content: center; align-items: center; gap: 16px; flex-wrap: wrap;
   padding: 10px 24px; background: var(--espresso); color: var(--sand);

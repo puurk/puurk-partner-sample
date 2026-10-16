@@ -30,6 +30,10 @@
   const CART_STORAGE_KEY = 'lumiere-cart'
   const checkoutMode = new URLSearchParams(location.search).get('checkout') === 'modal' ? 'modal' : 'inline'
 
+  // Puurk's public demo deployment (static/config.demosite.js) says so on the
+  // page. Off by default, so a copy of this sample never shows it.
+  if (config.demoNotice === true) document.querySelector('[data-demo-notice]')?.removeAttribute('hidden')
+
   // Lumière's brand, passed to the embedded Puurk checkout so it matches
   // the rest of the site (including Stripe's card fields).
   const CHECKOUT_APPEARANCE = {

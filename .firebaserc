@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "sandbox": "puurk-sandbox"
+  },
+  "targets": {
+    "puurk-sandbox": {
+      "hosting": {
+        "demosite": ["puurk-demosite-sandbox"]
+      }
+    }
+  }
+}
