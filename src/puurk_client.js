@@ -69,13 +69,14 @@ class PuurkClient {
    * Performs an authenticated request against the gateway.
    * @param {string} method HTTP method.
    * @param {string} path Path starting with '/', may include a query string.
-   * @param {{body?: object, auth?: boolean}} [options] JSON body and whether
-   *   to attach the Bearer token (default true).
+   * @param {{body?: object, auth?: boolean, headers?: object}} [options] JSON
+   *   body, whether to attach the Bearer token (default true), and extra
+   *   request headers.
    * @return {Promise<*>} Parsed JSON response body.
    */
-  async request (method, path, { body, auth = true } = {}) {
+  async request (method, path, { body, auth = true, headers: extraHeaders = {} } = {}) {
     const doFetch = async () => {
-      const headers = { 'Content-Type': 'application/json' }
+      const headers = { 'Content-Type': 'application/json', ...extraHeaders }
       if (auth) headers.Authorization = `Bearer ${await this.getToken()}`
       return fetch(`${this.baseUrl}${path}`, {
         method,
@@ -183,6 +184,47 @@ class PuurkClient {
    */
   getTerms (params) {
     return this.request('GET', `/offers/terms${query(params)}`)
+  }
+
+  // --- Services (catalog) ---
+
+  /**
+   * Lists an organization's services, packages and products.
+   * @param {string} oid Organization id.
+   * @param {{type?: string}} [params] Optional type filter (e.g. 'service', 'package').
+   * @return {Promise<Array>} Services; prices are `unit_price` in cents.
+   */
+  listOrgServices (oid, params = {}) {
+    return this.request('GET', `/organizations/${oid}/services${query(params)}`)
+  }
+
+  // --- Checkout ---
+
+  /**
+   * Creates a checkout session for the embeddable checkout (@puurk/js).
+   * Send either `items` (service ids and quantities, priced by Puurk from the
+   * catalog, as the storefront does) or an `amount` in cents with optional
+   * `down_payment` and informational `services`; never both.
+   * @param {{oid: string, items?: Array<{service_id: string, quantity: number}>,
+   *   amount?: number, down_payment?: number, services?: Array,
+   *   customer: {name?: string, email: string, phone?: string},
+   *   return_url?: string, cancel_url?: string, metadata?: object}} body Session request.
+   * @param {string} [idempotencyKey] Replays return the original session instead of a new one.
+   * @return {Promise<{session_id: string, checkout_url: string, plans: Array, expires_at: string}>}
+   */
+  createCheckoutSession (body, idempotencyKey) {
+    const headers = idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}
+    return this.request('POST', '/checkout/sessions', { body, headers })
+  }
+
+  /**
+   * Fetches a checkout session created by this partner.
+   * @param {string} sessionId Checkout session id.
+   * @return {Promise<{session_id: string, status: string, contract_id: string|null}>}
+   *   Session; 410 once expired.
+   */
+  getCheckoutSession (sessionId) {
+    return this.request('GET', `/checkout/sessions/${encodeURIComponent(sessionId)}`)
   }
 
   // --- Payments ---

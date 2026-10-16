@@ -168,6 +168,69 @@ describe('PuurkClient', () => {
     expect(call(1).body).toEqual(webhook)
   })
 
+  it('lists an organization services with an optional type filter', async () => {
+    fetchMock.mockResolvedValueOnce(tokenResponse())
+      .mockResolvedValueOnce(jsonResponse(200, [{ id: 's_1' }]))
+      .mockResolvedValueOnce(jsonResponse(200, []))
+
+    await expect(client.listOrgServices('org_1')).resolves.toEqual([{ id: 's_1' }])
+    await client.listOrgServices('org_1', { type: 'package' })
+
+    expect(call(1).url).toBe(`${BASE_URL}/organizations/org_1/services`)
+    expect(call(2).url).toBe(`${BASE_URL}/organizations/org_1/services?type=package`)
+  })
+
+  it('creates a checkout session with an Idempotency-Key header', async () => {
+    const body = { oid: 'org_1', items: [{ service_id: 's_1', quantity: 2 }], customer: { email: 'jane@example.com' } }
+    fetchMock.mockResolvedValueOnce(tokenResponse()).mockResolvedValueOnce(jsonResponse(201, { session_id: 'cs_1' }))
+
+    await expect(client.createCheckoutSession(body, 'key_1')).resolves.toEqual({ session_id: 'cs_1' })
+
+    expect(call(1).url).toBe(`${BASE_URL}/checkout/sessions`)
+    expect(call(1).init.method).toBe('POST')
+    expect(call(1).body).toEqual(body)
+    expect(call(1).init.headers['Idempotency-Key']).toBe('key_1')
+    expect(call(1).init.headers.Authorization).toBe('Bearer tok_1')
+  })
+
+  it('omits the Idempotency-Key header when no key is given', async () => {
+    fetchMock.mockResolvedValueOnce(tokenResponse()).mockResolvedValueOnce(jsonResponse(201, { session_id: 'cs_1' }))
+
+    await client.createCheckoutSession({ oid: 'org_1', items: [] })
+
+    expect(call(1).init.headers).not.toHaveProperty('Idempotency-Key')
+  })
+
+  it('resends extra headers when it retries after a 401', async () => {
+    fetchMock.mockResolvedValueOnce(tokenResponse('tok_1'))
+      .mockResolvedValueOnce(jsonResponse(401, {}))
+      .mockResolvedValueOnce(tokenResponse('tok_2'))
+      .mockResolvedValueOnce(jsonResponse(201, { session_id: 'cs_1' }))
+
+    await client.createCheckoutSession({ oid: 'org_1', items: [] }, 'key_1')
+
+    expect(call(3).init.headers['Idempotency-Key']).toBe('key_1')
+    expect(call(3).init.headers.Authorization).toBe('Bearer tok_2')
+  })
+
+  it('never lets extra headers replace the Bearer token', async () => {
+    fetchMock.mockResolvedValueOnce(tokenResponse()).mockResolvedValueOnce(jsonResponse(200, {}))
+
+    await client.request('GET', '/auth/validate', { headers: { Authorization: 'Bearer spoofed', 'X-Trace': 't_1' } })
+
+    expect(call(1).init.headers.Authorization).toBe('Bearer tok_1')
+    expect(call(1).init.headers['X-Trace']).toBe('t_1')
+    expect(call(1).init.headers['Content-Type']).toBe('application/json')
+  })
+
+  it('fetches a checkout session with the id URL-encoded', async () => {
+    fetchMock.mockResolvedValueOnce(tokenResponse()).mockResolvedValueOnce(jsonResponse(200, { session_id: 'cs/1', status: 'open' }))
+
+    await client.getCheckoutSession('cs/1')
+
+    expect(call(1).url).toBe(`${BASE_URL}/checkout/sessions/cs%2F1`)
+  })
+
   it('returns null for an empty success body', async () => {
     fetchMock.mockResolvedValueOnce(tokenResponse()).mockResolvedValueOnce(new Response(null, { status: 204 }))
 

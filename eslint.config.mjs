@@ -2,7 +2,8 @@ import js from '@eslint/js'
 import globals from 'globals'
 
 export default [
-  { ignores: ['node_modules/'] },
+  // public/vendor/ is the vendored @puurk/js build; dist-static/ is build output.
+  { ignores: ['node_modules/', 'public/vendor/', 'dist-static/'] },
   js.configs.recommended,
   {
     files: ['src/**/*.js'],
@@ -13,7 +14,16 @@ export default [
     },
   },
   {
-    files: ['tests/**/*.js', '*.mjs'],
+    // The storefront page's classic <script> files.
+    files: ['public/**/*.js', 'static/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: globals.browser,
+    },
+  },
+  {
+    files: ['tests/**/*.js', '*.mjs', 'scripts/**/*.mjs'],
     languageOptions: {
       sourceType: 'module',
       globals: globals.node,
