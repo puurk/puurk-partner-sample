@@ -1,0 +1,19 @@
+Puurk partner sample
+Copyright 2026 Puurk, Inc.
+
+Licensed under the Apache License, Version 2.0 (see LICENSE), except for
+the files listed below.
+
+public/vendor/
+  A prebuilt copy of the Puurk JavaScript SDK (@puurk/js), included only so
+  the sample runs without a build step. It is Copyright Puurk, Inc., all
+  rights reserved, and is NOT covered by this repository's license. Load
+  the SDK from Puurk (https://js.puurk.com) in your own integration.
+
+public/images/puurk-logo.svg
+  The Puurk name and logo are trademarks of Puurk, Inc. Apache License 2.0
+  section 6 grants no rights to use them.
+
+public/images/*.webp
+  Photos from Unsplash under the Unsplash License; see
+  public/images/CREDITS.md.

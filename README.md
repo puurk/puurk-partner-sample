@@ -18,6 +18,8 @@ Use it two ways:
   pricing, and takes Puurk checkout **inline on the merchant's own page** with
   [`@puurk/js`](https://github.com/puurk/puurk-js). There's no redirect to a
   Puurk-hosted page. See [Example storefront](#example-storefront-inline-checkout).
+  Puurk runs the static version at https://demosite.puurk.com against the
+  sandbox (check out with test card 4242 4242 4242 4242).
 
 ## Quick start
 
@@ -397,6 +399,10 @@ npm run static          # http://localhost:4849, a plain file server
 npm run build:static    # dist-static/: upload to any static host
 ```
 
+`build:static` takes `--config <file>` to publish a different config as
+`/config.js`, and `--noindex` to add a `robots.txt` that blocks crawlers (for
+test or staging deployments).
+
 In static mode the page does everything with the publishable client id:
 
 - the menu comes from `Puurk.catalog.services()` (Puurk's public catalog:
@@ -435,7 +441,11 @@ npm run vendor-sdk -- <path>       # or another checkout
 ```
 
 Once the CDN is live, set `PUURK_JS_URL=https://js.puurk.com/v1/puurk.js` and
-skip vendoring. `PUURK_ENVIRONMENT` (default `sandbox`) tells the SDK which
+skip vendoring. The vendored build is not covered by this repository's
+license (see [License](#license)): load the SDK from Puurk in your own
+integration rather than copying it.
+
+`PUURK_ENVIRONMENT` (default `sandbox`) tells the SDK which
 Puurk environment to talk to, and must match `PUURK_API_BASE_URL`.
 
 Photos in `public/images/` are from [Unsplash](https://unsplash.com), free to
@@ -478,3 +488,18 @@ check). PRs from branches in this repository also get an automated Claude
 code review, and are approved automatically when the review finds nothing
 blocking and the tests pass. PRs from forks skip the automated review and are
 reviewed by a maintainer.
+
+`.github/workflows/deploy-demosite.yml`, `firebase.json`, `.firebaserc` and
+`static/config.demosite.js` are Puurk's own deployment of the static
+storefront to https://demosite.puurk.com. Integrators can delete them. The
+workflow deploys only from `main`, with a Google identity that pull requests,
+forks and other branches can't assume. It skips the deploy while the demo
+config still has placeholder ids. Set the repo variable
+`DISABLE_DEMOSITE_DEPLOY=true` to turn it off.
+
+## License
+
+Apache License 2.0 (see [LICENSE](LICENSE)), with the exceptions listed in
+[NOTICE](NOTICE). In particular, `public/vendor/puurk.js`, the vendored
+`@puurk/js` build, is Copyright Puurk, Inc. and not covered by this license,
+and the Puurk name and logo are trademarks.

@@ -1,8 +1,9 @@
 {
   "name": "puurk-partner-sample",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Sample partner integration that exercises the Puurk REST API and webhooks",
   "private": true,
+  "license": "Apache-2.0",
   "main": "src/index.js",
   "engines": {
     "node": ">=20"

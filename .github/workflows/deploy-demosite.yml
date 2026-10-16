@@ -1,0 +1,67 @@
+# Puurk's own deployment of the static storefront to https://demosite.puurk.com
+# (Firebase Hosting site puurk-demosite-sandbox, against the Puurk sandbox).
+# Integrators copying this sample can delete this file, firebase.json and
+# .firebaserc.
+#
+# Only pushes to main deploy. The Google identity it uses is granted by exact
+# GitHub OIDC subject (repo:puurk/puurk-partner-sample:ref:refs/heads/main, in
+# puurk-infra), so pull requests, forks and other branches can't assume it,
+# and there is no stored key. Kill switch: repo variable
+# DISABLE_DEMOSITE_DEPLOY=true.
+name: Deploy demo site
+
+"on":
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-demosite
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.repository == 'puurk/puurk-partner-sample' &&
+      github.ref == 'refs/heads/main' &&
+      vars.DISABLE_DEMOSITE_DEPLOY != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Install Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      # The demo organization and its publishable client are issued in the
+      # sandbox separately; until their ids replace the placeholders, skip.
+      - name: Check demo config
+        id: config
+        run: |
+          if grep -q 'REPLACE_WITH_' static/config.demosite.js; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::static/config.demosite.js still has placeholder ids; skipping the deploy."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        if: steps.config.outputs.configured == 'true'
+        run: node scripts/build-static.mjs --config static/config.demosite.js --noindex
+
+      - name: Authenticate to Google Cloud
+        if: steps.config.outputs.configured == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/875958294922/locations/global/workloadIdentityPools/deployment-pool/providers/github-provider
+          service_account: github-actions-public-hosting@puurk-sandbox.iam.gserviceaccount.com
+
+      - name: Deploy
+        if: steps.config.outputs.configured == 'true'
+        run: npx --yes firebase-tools@15.34.0 deploy --only hosting:demosite --project puurk-sandbox --non-interactive

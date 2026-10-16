@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.4.0]
+
+### Added
+
+- PUU-2848: The static storefront can be published as Puurk's public demo
+  at https://demosite.puurk.com. `static/config.demosite.js` targets the
+  sandbox, and `.github/workflows/deploy-demosite.yml` builds and deploys it
+  to Firebase Hosting on every push to `main`. It authenticates with a Google
+  identity that only `main` of this repository can assume (no stored key),
+  skips the deploy while the demo ids are placeholders, and has the kill switch
+  `DISABLE_DEMOSITE_DEPLOY`. The site sends `X-Robots-Tag: noindex`.
+- PUU-2848: A `demoNotice: true` config option shows a "demo site, use test
+  card 4242" notice above the storefront. It is off by default.
+- PUU-2848: `npm run build:static` takes `--config <file>` and `--noindex`
+  (writes a `robots.txt` that blocks crawlers).
+- PUU-2848: Apache-2.0 license (`LICENSE`, `NOTICE`). The vendored `@puurk/js`
+  build in `public/vendor/` is excluded and stays Copyright Puurk, Inc., and
+  the Puurk name and logo are trademarks.
+
 ## [v0.3.0]
 
 ### Added
