@@ -1,0 +1,31 @@
+name: Run unit tests
+"on":
+  # Every PR. This is the only place the check runs: the "Require unit tests"
+  # ruleset makes the `test` check required on main and requires the PR to be
+  # up to date with it, so the merge ref checked here is exactly what lands.
+  pull_request:
+  # Allow a manual run against any branch.
+  workflow_dispatch:
+permissions:
+  contents: read
+# One run per PR at a time: a new push cancels the superseded run.
+concurrency:
+  group: unit-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+      - name: Install Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Run unit tests
+        run: npm test

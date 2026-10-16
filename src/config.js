@@ -10,6 +10,7 @@ const config = {
   webhookSecret: process.env.WEBHOOK_SECRET || '',
   webhookPublicUrl: process.env.WEBHOOK_PUBLIC_URL || '',
   signatureToleranceSeconds: Number(process.env.SIGNATURE_TOLERANCE_SECONDS || 300),
+  webhookRateLimitPerMinute: Number(process.env.WEBHOOK_RATE_LIMIT_PER_MINUTE || 600),
   storefrontPort: Number(process.env.STOREFRONT_PORT || 4848),
   // Optional curated menu (comma-separated service ids, in display order).
   // When empty, a varied selection is taken from the catalog instead.
