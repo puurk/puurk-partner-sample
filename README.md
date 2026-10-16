@@ -279,3 +279,16 @@ npm run tunnel           # optional: expose via ngrok, then register-webhook
 | `npm run register-webhook` | Register `WEBHOOK_PUBLIC_URL` with Puurk |
 | `npm run send-test-event` | POST a locally signed event to the receiver |
 | `npm run tunnel` | ngrok tunnel for local webhook testing |
+| `npm run lint` | ESLint over `src/` and `tests/` |
+| `npm test` | Offline unit tests (vitest): signature verification, the webhook receiver, and the API client against a mocked `fetch` |
+
+## Development
+
+The scripts above run on Node.js 20+. The lint and test tooling needs
+Node.js 22.12+.
+
+Every pull request runs `npm run lint` and `npm test` (the required `test`
+check). PRs from branches in this repository also get an automated Claude
+code review, and are approved automatically when the review finds nothing
+blocking and the tests pass. PRs from forks skip the automated review and are
+reviewed by a maintainer.

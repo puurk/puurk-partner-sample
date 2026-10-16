@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.2.2]
+
+### Added
+
+- PUU-2849: Offline unit tests (vitest + supertest) for signature
+  verification, the webhook receiver and the API client, plus ESLint
+  (`npm run lint`, `npm test`). The webhook receiver is now built by
+  `createWebhookApp()` in `src/webhook_app.js` so it can be tested without a
+  listener; `npm run webhook` behaves the same.
+- PUU-2849: CI. Every PR runs lint and tests (`unit-tests.yml`). PRs from
+  branches in this repository get the Claude Code Review and are approved
+  automatically on a clean review with green tests. Because the repository is
+  public, fork PRs and PRs from outside authors skip the review, so a run with
+  secrets never reads text an outsider controls. There is no `@claude`
+  mention workflow here for the same reason.
+
 ## [v0.2.1]
 
 ### Security
