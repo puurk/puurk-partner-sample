@@ -202,9 +202,13 @@ class PuurkClient {
 
   /**
    * Creates a checkout session for the embeddable checkout (@puurk/js).
-   * @param {{oid: string, amount: number, customer: {name?: string, email: string, phone?: string},
-   *   down_payment?: number, services?: Array, return_url?: string, cancel_url?: string,
-   *   metadata?: object}} body Session request; amounts in cents.
+   * Send either `items` (service ids and quantities, priced by Puurk from the
+   * catalog, as the storefront does) or an `amount` in cents with optional
+   * `down_payment` and informational `services`; never both.
+   * @param {{oid: string, items?: Array<{service_id: string, quantity: number}>,
+   *   amount?: number, down_payment?: number, services?: Array,
+   *   customer: {name?: string, email: string, phone?: string},
+   *   return_url?: string, cancel_url?: string, metadata?: object}} body Session request.
    * @param {string} [idempotencyKey] Replays return the original session instead of a new one.
    * @return {Promise<{session_id: string, checkout_url: string, plans: Array, expires_at: string}>}
    */

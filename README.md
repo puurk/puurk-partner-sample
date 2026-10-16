@@ -334,8 +334,9 @@ The pieces worth copying into a real site:
   to `mount()`, so only payment plans are offered. A pay-in-full checkout
   completes with `contract_id: null`, because there's no payment plan.
 - **Idempotent session creation.** Each checkout attempt gets an attempt id,
-  and the server derives the `Idempotency-Key` from it plus the cart contents.
-  A double-click replays the same session instead of creating two, while a
+  which `POST /api/checkout` requires. The server derives the
+  `Idempotency-Key` from it plus the cart and the customer's email. A
+  double-click replays the same session instead of creating two, while a
   changed cart gets a fresh one.
 - **Sessions expire after 30 minutes.** The drawer offers a one-click
   "Start again" that creates a fresh session.
@@ -344,7 +345,9 @@ The pieces worth copying into a real site:
   the partner `GET /checkout/sessions/{id}`) for the session's real status for
   up to about a minute. If the session completed, the drawer shows the
   confirmation. "Start again" is offered only when the session didn't
-  complete, so a customer is never invited to pay twice.
+  complete, so a customer is never invited to pay twice. The server only
+  answers for sessions it created. This demo remembers them in memory for 24
+  hours (lost on restart); a real site stores the session id with its order.
 - **The online menu is curated.** A real catalog can hold hundreds of items
   (add-ons, per-unit pricing, internal entries). Set `STOREFRONT_SERVICE_IDS`
   to choose exactly what's sold online. Without it, the server takes a varied

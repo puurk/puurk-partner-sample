@@ -13,7 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   prices and "as low as $X/mo" Puurk pricing, and takes checkout inline on
   the merchant's own page with `@puurk/js` (`Puurk.checkout.mount`), with no
   redirect to a Puurk-hosted page. The server keeps the API credential,
-  prices sessions from the catalog (never from the browser), and creates
+  sends Puurk only the cart's service ids and quantities (Puurk prices
+  them from its catalog; browser prices are never used), and creates
   sessions idempotently. Ships with a vendored `@puurk/js` build
   (`npm run vendor-sdk` refreshes it), a responsive design, and a confirmation page.
 - PUU-2802: When the embedded checkout reports an error, the storefront checks
@@ -23,9 +24,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   in Puurk after the browser sees a failure (for example an API gateway
   timeout), and restarting would charge the customer twice.
 - PUU-2824: Shopping cart for the storefront. Clients add several treatments
-  and packages, adjust quantities, and check out once. The server prices the
-  whole cart from the catalog, caps quantities, and creates one Puurk session
-  for the total with the items as line items. A new `POST /api/cart/quote`
+  and packages, adjust quantities, and check out once. The server checks the
+  cart against the menu, caps quantities, and creates one Puurk session for
+  the whole cart from its items. A new `POST /api/cart/quote`
   endpoint returns the cart's "as low as" plus, for every treatment, how much
   adding it changes the cart's lowest monthly payment, quoted from live terms
   because plan lengths change with the amount.
@@ -56,6 +57,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   `STOREFRONT_DOWN_PAYMENT_PERCENT` are removed, since down payments are set
   on the services.
 - `PuurkClient` methods for the service catalog and checkout sessions.
+- PUU-2802: The storefront server is built by `createStorefrontApp()` in
+  `src/storefront_app.js` (`npm run storefront` behaves the same), with a
+  supertest suite for its routes, menu curation, catalog cache, idempotency
+  key and error mapping, plus tests for the new `PuurkClient` methods.
+- PUU-2802: `POST /api/checkout` requires `attempt_id`, so every session
+  create is idempotent and a double submit can't open a second session.
+- PUU-2802: The sessions the storefront can look up are kept for 24 hours,
+  1,000 at most, instead of in an unbounded set. They're in memory for the
+  demo; a real merchant stores the session id with its order.
 - PUU-2802: ESLint now also covers the storefront's browser scripts
   (`public/`, `static/`) and `scripts/*.mjs`, skipping the vendored
   `@puurk/js` build.
