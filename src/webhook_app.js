@@ -1,16 +1,35 @@
 const express = require('express')
+const { rateLimit } = require('express-rate-limit')
 const { parseSignatureHeader, verifyWebhookSignature } = require('./verify_signature')
 
 /**
- * Builds the webhook receiver app without starting a listener: verifies
- * X-Puurk-Signature on each delivery, dedupes on event id, and logs the event.
- * @param {{webhookPath: string, webhookSecret: string, signatureToleranceSeconds: number}} options
- *   Path the signed POST receiver is mounted on, endpoint signing secret, and
- *   allowed clock drift in seconds (0 disables the check).
+ * Builds the webhook receiver app without starting a listener: rate limits
+ * deliveries per client IP, verifies X-Puurk-Signature on each delivery,
+ * dedupes on event id, and logs the event.
+ * @param {{webhookPath: string, webhookSecret: string, signatureToleranceSeconds: number, webhookRateLimitPerMinute: number}} options
+ *   Path the signed POST receiver is mounted on, endpoint signing secret,
+ *   allowed clock drift in seconds (0 disables the check), and the most
+ *   deliveries one client IP may send per minute (default 600).
  * @return {import('express').Express} The configured Express app.
  */
-function createWebhookApp ({ webhookPath, webhookSecret, signatureToleranceSeconds }) {
+function createWebhookApp ({ webhookPath, webhookSecret, signatureToleranceSeconds, webhookRateLimitPerMinute = 600 }) {
   const app = express()
+
+  // Trust X-Forwarded-For only when the request comes from this machine, i.e.
+  // a local tunnel such as ngrok, so the limit applies per real client IP.
+  // Behind a hosted load balancer, set this to that proxy's address or hop count.
+  app.set('trust proxy', 'loopback')
+
+  // Rejected deliveries count toward the limit too, so a caller probing
+  // signatures is throttled as well. Size it above your expected peak:
+  // Puurk retries failed deliveries, and a 429 is treated as a failure.
+  const deliveryLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: webhookRateLimitPerMinute,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: 'too many requests' }
+  })
 
   // Events are delivered at most once per retry attempt but the same event id
   // is shared across all of a partner's endpoints, so dedupe on (event id).
@@ -18,7 +37,7 @@ function createWebhookApp ({ webhookPath, webhookSecret, signatureToleranceSecon
 
   app.get('/health', (req, res) => res.json({ ok: true }))
 
-  app.post(webhookPath, express.raw({ type: 'application/json', limit: '1mb' }), (req, res) => {
+  app.post(webhookPath, deliveryLimiter, express.raw({ type: 'application/json', limit: '1mb' }), (req, res) => {
     const header = req.get('X-Puurk-Signature')
     const parsed = parseSignatureHeader(header)
     if (!parsed) {

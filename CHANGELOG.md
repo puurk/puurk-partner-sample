@@ -12,7 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   verification, the webhook receiver and the API client, plus ESLint
   (`npm run lint`, `npm test`). The webhook receiver is now built by
   `createWebhookApp()` in `src/webhook_app.js` so it can be tested without a
-  listener; `npm run webhook` behaves the same.
+  listener.
+- PUU-2849: The webhook receiver rate limits deliveries per client IP with
+  `express-rate-limit` (`WEBHOOK_RATE_LIMIT_PER_MINUTE`, default 600), as an
+  example for integrators of protecting a public webhook URL. It trusts
+  `X-Forwarded-For` only from a loopback proxy such as a local ngrok tunnel.
+  The README explains how to size the limit, since Puurk retries a `429`.
 - PUU-2849: CI. Every PR runs lint and tests (`unit-tests.yml`). PRs from
   branches in this repository get the Claude Code Review and are approved
   automatically on a clean review with green tests. Because the repository is

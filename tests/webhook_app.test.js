@@ -120,4 +120,44 @@ describe('webhook receiver app', () => {
     expect(res.status).toBe(200)
     expect((await request(app).post('/webhook').send(body)).status).toBe(404)
   })
+
+  describe('rate limiting', () => {
+    beforeEach(() => {
+      app = createWebhookApp({ webhookPath: '/webhook', webhookSecret: SECRET, signatureToleranceSeconds: 300, webhookRateLimitPerMinute: 2 })
+    })
+
+    it('answers 429 once a client exceeds the per-minute limit', async () => {
+      expect((await deliver(event('evt_1'))).status).toBe(200)
+      expect((await deliver(event('evt_2'))).status).toBe(200)
+      const res = await deliver(event('evt_3'))
+      expect(res.status).toBe(429)
+      expect(res.body).toEqual({ error: 'too many requests' })
+      expect(res.headers['retry-after']).toBeDefined()
+      expect(res.headers.ratelimit).toBeDefined()
+    })
+
+    it('counts rejected deliveries toward the limit', async () => {
+      await deliver(event(), 'nonsense')
+      await deliver(event(), 'nonsense')
+      expect((await deliver(event())).status).toBe(429)
+    })
+
+    it('limits each client IP separately behind a local tunnel', async () => {
+      const from = (ip, body) => request(app).post('/webhook').set('Content-Type', 'application/json')
+        .set('X-Forwarded-For', ip).set('X-Puurk-Signature', signatureHeader(body)).send(body)
+      await from('203.0.113.1', event('evt_1'))
+      await from('203.0.113.1', event('evt_2'))
+      expect((await from('203.0.113.1', event('evt_3'))).status).toBe(429)
+      expect((await from('203.0.113.2', event('evt_4'))).status).toBe(200)
+    })
+
+    it('does not limit the health check', async () => {
+      for (let i = 0; i < 3; i++) await deliver(event(`evt_${i}`))
+      expect((await request(app).get('/health')).status).toBe(200)
+    })
+  })
+
+  it('does not throttle ordinary traffic under the default limit', async () => {
+    for (let i = 0; i < 10; i++) expect((await deliver(event(`evt_${i}`))).status).toBe(200)
+  })
 })
