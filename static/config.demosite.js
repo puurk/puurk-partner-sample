@@ -13,8 +13,8 @@ window.STOREFRONT_CONFIG = {
   environment: 'sandbox',
   // The sandbox demo organization's publishable client, issued for
   // https://demosite.puurk.com only.
-  clientId: 'REPLACE_WITH_DEMOSITE_CLIENT_ID',
-  oid: 'REPLACE_WITH_DEMOSITE_OID',
+  clientId: 'pk_sandbox_demosite',
+  oid: 'sandbox-org-demosite',
   puurkJsUrl: '/vendor/puurk.js',
   payInFull: true,
   // Shows the "demo site, use test card 4242" notice above the page.

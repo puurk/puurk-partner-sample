@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.4.1]
+
+### Changed
+
+- PUU-2848: `static/config.demosite.js` has the sandbox demo org (`sandbox-org-demosite`) and its publishable client (`pk_sandbox_demosite`), so the next push to `main` deploys https://demosite.puurk.com.
+
 ## [v0.4.0]
 
 ### Added
