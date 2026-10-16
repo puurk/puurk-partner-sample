@@ -600,7 +600,7 @@
     }
     const invalid = {
       name: customer.name.length === 0,
-      email: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email),
+      email: customer.email.length > 254 || !/^[^\s@]+@(?:[^\s@.]+\.)+[^\s@.]+$/.test(customer.email),
       phone: false
     }
     for (const [key, input] of Object.entries(fields)) input.setAttribute('aria-invalid', String(invalid[key]))

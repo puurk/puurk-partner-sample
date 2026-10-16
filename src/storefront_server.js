@@ -30,9 +30,11 @@ const SELLABLE_TYPES = new Set(['service', 'package'])
 // Catalog entries that aren't standalone treatments to sell online.
 const NOT_FOR_STOREFRONT_PATTERN = /\btest\b|\badd[- ]?on\b|\bper (vial|unit|syringe|ml)\b/i
 const ENVIRONMENTS = new Set(['staging', 'demo', 'sandbox', 'production'])
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// Dots only separate domain labels, so matching never backtracks quadratically.
+const EMAIL_PATTERN = /^[^\s@]+@(?:[^\s@.]+\.)+[^\s@.]+$/
 const ATTEMPT_ID_PATTERN = /^[A-Za-z0-9-]{8,64}$/
 const MAX_NAME_LENGTH = 100
+const MAX_EMAIL_LENGTH = 254
 const MAX_PHONE_LENGTH = 32
 const MAX_CART_LINES = 20
 const MAX_LINE_QUANTITY = 10
@@ -182,7 +184,7 @@ function parseCustomer (input) {
   const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : ''
   const phone = typeof input.phone === 'string' ? input.phone.trim() : ''
   if (!name || name.length > MAX_NAME_LENGTH) return null
-  if (!EMAIL_PATTERN.test(email)) return null
+  if (email.length > MAX_EMAIL_LENGTH || !EMAIL_PATTERN.test(email)) return null
   if (phone.length > MAX_PHONE_LENGTH) return null
   return phone ? { name, email, phone } : { name, email }
 }
