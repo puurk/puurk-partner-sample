@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.4.3]
+
+### Changed
+
+- PUU-2899: Claude Code Review now gets the PR's base and head branch, and treats `staging` → `main` and `release/*` → `staging` PRs as release PRs, so their version bump, versioned CHANGELOG section and consumed `.changes/` fragments are no longer reported as breaking feature-PR rules. It also no longer reports concerns it could only confirm by reading another repository.
+
 ## [v0.4.2]
 
 ### Changed
