@@ -4,11 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unversioned]
+## [v0.4.3]
 
 ### Changed
 
 - PUU-2899: Claude Code Review now gets the PR's base and head branch, and treats `staging` → `main` and `release/*` → `staging` PRs as release PRs, so their version bump, versioned CHANGELOG section and consumed `.changes/` fragments are no longer reported as breaking feature-PR rules. It also no longer reports concerns it could only confirm by reading another repository.
+
+## [v0.4.2]
+
+### Changed
+
+- PUU-2859: The header cart button shows a shopping cart instead of a bag, and the drawer step reads "Plan & Payment".
+- PUU-2859: Vendored @puurk/js v1.2.1: the price blocks and cart summary no longer show the "See plans" link, and plan totals in the checkout are exact to the cent, and Stripe's test-mode developer assistant no longer shows during checkout.
+
+### Fixed
+
+- PUU-2859: "Pay over time with Puurk" wraps in the package cards instead of clipping the end of the Puurk logo.
 
 ## [v0.4.1]
 
