@@ -65,6 +65,8 @@ jobs:
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
+            BASE BRANCH: ${{ github.event.pull_request.base.ref }}
+            HEAD BRANCH: ${{ github.event.pull_request.head.ref }}
 
             Review this pull request yourself, in this session. Do not delegate to subagents or background
             tasks and do not wait for anything: read the PR, then write the review.
@@ -87,6 +89,13 @@ jobs:
                merge: a bug in the changed code, a security problem, a clear CLAUDE.md violation, or missing
                tests for behaviour the PR changes. Everything else you still think is worth mentioning is
                NON-BLOCKING. When in doubt about whether a real finding blocks the merge, treat it as blocking.
+            6. Judge rules that depend on the kind of PR by the BASE BRANCH and HEAD BRANCH above. A PR from
+               `staging` into `main`, or from a `release/*` branch into `staging`, is a release PR: it carries
+               changes already reviewed on their own PRs plus the release cut, so a version bump, a new versioned
+               `CHANGELOG.md` section and consumed `.changes/` fragments are expected there. Never report those as
+               breaking a rule that CLAUDE.md writes for feature PRs. Likewise, do not report a concern you could
+               only confirm by reading another repository (for example whether a pinned dependency commit has a
+               field); the build and test checks catch that.
 
             IMPORTANT: Do NOT try to post the review or approve the PR yourself. The workflow posts your final
             message verbatim as the PR comment, and approves the PR from your verdict line once the unit tests
