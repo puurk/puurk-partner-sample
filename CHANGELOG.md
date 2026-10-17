@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - PUU-2859: The header cart button shows a shopping cart instead of a bag, and the drawer step reads "Plan & Payment".
-- PUU-2859: Vendored @puurk/js v1.2.1: the price blocks and cart summary no longer show the "See plans" link, and plan totals in the checkout are exact to the cent.
+- PUU-2859: Vendored @puurk/js v1.2.1: the price blocks and cart summary no longer show the "See plans" link, and plan totals in the checkout are exact to the cent, and Stripe's test-mode developer assistant no longer shows during checkout.
 
 ### Fixed
 
