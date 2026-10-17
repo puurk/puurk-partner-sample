@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.4.2]
+
+### Changed
+
+- PUU-2859: The header cart button shows a shopping cart instead of a bag, and the drawer step reads "Plan & Payment".
+- PUU-2859: Vendored @puurk/js v1.2.1: the price blocks and cart summary no longer show the "See plans" link, and plan totals in the checkout are exact to the cent.
+
+### Fixed
+
+- PUU-2859: "Pay over time with Puurk" wraps in the package cards instead of clipping the end of the Puurk logo.
+
 ## [v0.4.1]
 
 ### Changed

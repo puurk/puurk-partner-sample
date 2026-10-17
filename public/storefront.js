@@ -479,7 +479,7 @@
   const page = $('#page')
   const form = $('#details-form')
 
-  const STEP_TITLES = { cart: 'Your cart', details: 'Your details', checkout: 'Plan & payment', done: 'Confirmed' }
+  const STEP_TITLES = { cart: 'Your cart', details: 'Your details', checkout: 'Plan & Payment', done: 'Confirmed' }
 
   const state = {
     attemptId: null,
