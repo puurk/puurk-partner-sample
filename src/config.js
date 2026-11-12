@@ -30,8 +30,9 @@ const config = {
   // @puurk/js environment the browser checkout talks to; must match the
   // environment PUURK_API_BASE_URL points at.
   puurkEnvironment: process.env.PUURK_ENVIRONMENT || 'sandbox',
-  // Where the browser loads @puurk/js from. Defaults to the vendored build.
-  puurkJsUrl: process.env.PUURK_JS_URL || '/vendor/puurk.js',
+  // Where the browser loads @puurk/js from: a pinned js.puurk.com version.
+  // Set to /vendor/puurk.js to use a build from scripts/vendor-sdk.mjs.
+  puurkJsUrl: process.env.PUURK_JS_URL || 'https://js.puurk.com/v1.3.2/puurk.js',
   // Local testing only: point the browser SDK at another checkout API (e.g.
   // a local emulator). Empty uses the environment's default gateway.
   puurkJsApiUrl: process.env.PUURK_JS_API_URL || ''

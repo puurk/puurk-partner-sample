@@ -15,9 +15,10 @@ window.STOREFRONT_CONFIG = {
   environment: 'sandbox',
   clientId: 'your-publishable-client-id',
   oid: 'sandbox-org-yourslug',
-  // Where the page loads @puurk/js from. The vendored build, or
-  // https://js.puurk.com/v1/puurk.js once the CDN is live.
-  puurkJsUrl: '/vendor/puurk.js',
+  // Where the page loads @puurk/js from: an exact version, so a new release
+  // never changes your site until you update this line. /v1/puurk.js
+  // follows every 1.x release instead.
+  puurkJsUrl: 'https://js.puurk.com/v1.3.2/puurk.js',
   // Offer "Pay in full" in the checkout and the price widgets.
   payInFull: true,
   // Optional curated menu: service ids in display order. Empty shows the
