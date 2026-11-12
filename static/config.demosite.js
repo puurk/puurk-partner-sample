@@ -15,7 +15,7 @@ window.STOREFRONT_CONFIG = {
   // https://demosite.puurk.com only.
   clientId: 'pk_sandbox_demosite',
   oid: 'sandbox-org-demosite',
-  puurkJsUrl: '/vendor/puurk.js',
+  puurkJsUrl: 'https://js.puurk.com/v1.3.2/puurk.js',
   payInFull: true,
   // Shows the "demo site, use test card 4242" notice above the page.
   demoNotice: true,

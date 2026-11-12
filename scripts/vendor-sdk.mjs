@@ -1,10 +1,11 @@
 /**
  * Builds @puurk/js from a local checkout and copies its UMD bundle to
- * public/vendor/puurk.js for the example storefront.
+ * public/vendor/puurk.js, for testing an unreleased SDK. The storefronts
+ * load a pinned js.puurk.com version by default; set PUURK_JS_URL (or
+ * puurkJsUrl in static/config.js) to /vendor/puurk.js to use this build.
  *
  * Usage: npm run vendor-sdk [-- <path to puurk-js>]
- * The path defaults to PUURK_JS_DIR, then ../puurk-js. Once the SDK is on
- * the js.puurk.com CDN, set PUURK_JS_URL instead and skip vendoring.
+ * The path defaults to PUURK_JS_DIR, then ../puurk-js.
  */
 
 import { execSync } from 'node:child_process'

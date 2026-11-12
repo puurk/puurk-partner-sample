@@ -321,8 +321,9 @@ The pieces worth copying into a real site:
   `Puurk.widgets.priceBlock`: "As low as $X/mo" with the plan length, the
   amount due today and the pay-in-full price, and once the cart has items,
   what the treatment adds ("+$X/mo", or "Your cart drops to" when a longer
-  plan opens up). The drawer uses `Puurk.widgets.cartSummary`, and "See
-  plans" opens every plan. All the widgets on the page share one quote
+  plan opens up). The drawer uses `Puurk.widgets.cartSummary`. Neither shows
+  a plan details link by default; pass `planDetails: true` to add a "See
+  options" link that opens every plan length. All the widgets on the page share one quote
   request per cart change, and they match the checkout exactly because Puurk
   prices both. They're styled from `storefront.css` through `--pk-*` CSS
   variables.
@@ -388,7 +389,7 @@ window.STOREFRONT_CONFIG = {
   environment: 'sandbox',
   clientId: 'your-publishable-client-id',   // not a secret
   oid: 'sandbox-org-yourslug',
-  puurkJsUrl: '/vendor/puurk.js',
+  puurkJsUrl: 'https://js.puurk.com/v1.3.2/puurk.js',
   payInFull: true,
   serviceIds: []                            // optional curated menu
 }
@@ -431,19 +432,27 @@ origin or organization.
 
 ### The @puurk/js SDK
 
-`@puurk/js` isn't on npm or the `js.puurk.com` CDN yet, so a built copy is
-vendored at `public/vendor/puurk.js`. Its first line records the version and
-commit. To refresh it from a local checkout of `puurk-js`:
+Both storefronts load a pinned version of `@puurk/js` from Puurk:
 
-```bash
-npm run vendor-sdk                 # builds ../puurk-js
-npm run vendor-sdk -- <path>       # or another checkout
+```html
+<script src="https://js.puurk.com/v1.3.2/puurk.js"></script>
 ```
 
-Once the CDN is live, set `PUURK_JS_URL=https://js.puurk.com/v1/puurk.js` and
-skip vendoring. The vendored build is not covered by this repository's
-license (see [License](#license)): load the SDK from Puurk in your own
-integration rather than copying it.
+Pin an exact version in your own site too. Exact versions never change once
+released (every version from 1.3.1 stays available), so a new SDK release
+can't change your checkout until you update the URL. `/v1/puurk.js` follows
+every 1.x release instead. To change the version, set `PUURK_JS_URL` for the
+server storefront, or `puurkJsUrl` in `static/config.js`.
+
+Puurk will publish a Subresource Integrity hash for each release. Until then,
+the pinned URL has no `integrity` attribute. `@puurk/js` isn't on npm yet.
+
+To test an unreleased SDK, `npm run vendor-sdk` builds a local checkout of
+`puurk-js` (`../puurk-js`, or pass a path) into `public/vendor/puurk.js`; then
+set `PUURK_JS_URL=/vendor/puurk.js` or `puurkJsUrl: '/vendor/puurk.js'`. The
+vendored build is not covered by this repository's license (see
+[License](#license)): load the SDK from Puurk in your own integration rather
+than copying it.
 
 `PUURK_ENVIRONMENT` (default `sandbox`) tells the SDK which
 Puurk environment to talk to, and must match `PUURK_API_BASE_URL`.
@@ -474,7 +483,7 @@ fictional business.
 | `npm run storefront:dev` | Same, restarting on server code changes |
 | `npm run static` | The same storefront with no server, from `static/config.js` (http://localhost:4849) |
 | `npm run build:static` | Collect the static storefront into `dist-static/` for any static host |
-| `npm run vendor-sdk` | Build `@puurk/js` from `../puurk-js` into `public/vendor/puurk.js` |
+| `npm run vendor-sdk` | Build an unreleased `@puurk/js` from `../puurk-js` into `public/vendor/puurk.js`, for testing |
 | `npm run lint` | ESLint over the server code, storefront page scripts, build scripts and tests (skips the vendored `@puurk/js` build) |
 | `npm test` | Offline unit tests (vitest): signature verification, the webhook receiver, and the API client against a mocked `fetch` |
 

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.4.4]
+
+### Changed
+
+- PUU-2925: Both storefronts load `@puurk/js` v1.3.2 from `https://js.puurk.com/v1.3.2/puurk.js` (the server storefront's `PUURK_JS_URL` default, `static/config.js` and the demo site config), instead of the vendored v1.2.1 build. The README recommends pinning an exact version, notes that Subresource Integrity hashes are coming, and keeps `npm run vendor-sdk` for testing an unreleased SDK. It also describes the current plan details link: off by default, and "See options" with `planDetails: true`.
+
 ## [v0.4.3]
 
 ### Changed
